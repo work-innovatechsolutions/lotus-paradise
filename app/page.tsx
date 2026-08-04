@@ -106,8 +106,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-14 items-center">
 
-            {/* LEFT — IMAGE WITH CLIP-PATH REVEAL */}
-            <SectionReveal className="lg:col-span-6 relative" direction="clip">
+            {/* LEFT — IMAGE WITH PREMIUM REVEAL */}
+            <SectionReveal className="lg:col-span-6 relative" direction="up" threshold="top 95%">
               <div className="relative h-[500px] sm:h-[560px] rounded-3xl overflow-hidden shadow-cinematic border border-[#C89D45]/35 group">
                 <Image
                   src="/images/hero/512706723_2775845722805003_4817204501185083117_n.jpg.jpeg"

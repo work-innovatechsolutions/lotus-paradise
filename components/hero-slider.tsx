@@ -40,106 +40,150 @@ export default function HeroSlider() {
     return () => clearInterval(timer);
   }, [slides]);
 
-  // GSAP entrance animation — runs once when slides load
+  // GSAP slide transition animation — runs every time current index changes
   useEffect(() => {
-    if (slides.length === 0 || isLoaded) return;
-    setIsLoaded(true);
+    if (slides.length === 0) return;
 
     const runTimeline = async () => {
       const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const { gsap } = await import("gsap");
 
+      const targets = [
+        badgeRef.current,
+        headingRef.current,
+        subtitleRef.current,
+        locationRef.current,
+        buttonsRef.current,
+      ];
+
+      gsap.killTweensOf(targets);
+
       if (prefersReduced) {
-        // Immediately show everything
-        [badgeRef.current, headingRef.current, subtitleRef.current, locationRef.current, buttonsRef.current, scrollIndicatorRef.current].forEach(el => {
+        targets.forEach((el) => {
           if (el) gsap.set(el, { opacity: 1, y: 0 });
         });
         return;
       }
 
-      // Set initial hidden states
-      gsap.set([badgeRef.current, headingRef.current, subtitleRef.current, locationRef.current, buttonsRef.current], {
+      // Reset targets to initial hidden state
+      gsap.set(targets, {
         opacity: 0,
-        y: 35,
+        y: 20,
       });
-      gsap.set(scrollIndicatorRef.current, { opacity: 0, y: -10 });
 
-      const tl = gsap.timeline({ delay: 0.3 });
+      // Split heading characters using SplitType
+      let splitHeading: any = null;
+      if (headingRef.current) {
+        const SplitType = (await import("split-type")).default;
+        // Clean up previous split formatting (React will have rendered new plain text)
+        splitHeading = new SplitType(headingRef.current, { types: "words,chars" });
+        gsap.set(splitHeading.chars, { opacity: 0, y: 30, rotateX: -45 });
+      }
+
+      const tl = gsap.timeline();
 
       // 1. Badge slides up
       tl.to(badgeRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.9,
+        duration: 0.65,
         ease: "power3.out",
       });
 
-      // 2. Heading — word-by-word reveal using SplitType
-      if (headingRef.current) {
-        const SplitType = (await import("split-type")).default;
-        const splitHeading = new SplitType(headingRef.current, { types: "words,chars" });
-
+      // 2. Heading characters stagger in
+      if (splitHeading && splitHeading.chars.length > 0) {
         gsap.set(headingRef.current, { opacity: 1, y: 0 });
-        gsap.set(splitHeading.chars, { opacity: 0, y: 50, rotateX: -60 });
-
         tl.to(
           splitHeading.chars,
           {
             opacity: 1,
             y: 0,
             rotateX: 0,
-            duration: 0.7,
-            ease: "back.out(1.6)",
-            stagger: { amount: 0.5 },
+            duration: 0.55,
+            ease: "back.out(1.4)",
+            stagger: { amount: 0.35 },
           },
-          "-=0.5"
+          "-=0.45"
+        );
+      } else {
+        tl.to(
+          headingRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.65,
+            ease: "power3.out",
+          },
+          "-=0.45"
         );
       }
 
-      // 3. Subtitle
-      tl.to(subtitleRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: "power2.out",
-      }, "-=0.3");
+      // 3. Subtitle slides up
+      tl.to(
+        subtitleRef.current,
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          ease: "power2.out",
+        },
+        "-=0.35"
+      );
 
       // 4. Location tag
-      tl.to(locationRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        ease: "power2.out",
-      }, "-=0.4");
+      tl.to(
+        locationRef.current,
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.55,
+          ease: "power2.out",
+        },
+        "-=0.4"
+      );
 
       // 5. Buttons stagger up
-      tl.to(buttonsRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: "power3.out",
-      }, "-=0.3");
+      tl.to(
+        buttonsRef.current,
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          ease: "power3.out",
+        },
+        "-=0.3"
+      );
+    };
 
-      // 6. Scroll indicator bounces in
+    runTimeline();
+  }, [currentIndex, slides]);
+
+  // Scroll indicator bounce & float animation (runs once on mount)
+  useEffect(() => {
+    const initScrollAnim = async () => {
+      const { gsap } = await import("gsap");
+      if (!scrollIndicatorRef.current) return;
+
+      gsap.set(scrollIndicatorRef.current, { opacity: 0, y: -10 });
+
+      const tl = gsap.timeline({ delay: 1.2 });
       tl.to(scrollIndicatorRef.current, {
         opacity: 1,
         y: 0,
         duration: 0.6,
         ease: "back.out(2)",
-      }, "-=0.2");
-
-      // 7. Floating animation on scroll indicator (repeating)
+      });
       tl.to(scrollIndicatorRef.current, {
         y: 8,
         duration: 1.2,
         ease: "power1.inOut",
         yoyo: true,
         repeat: -1,
-      }, "+=0.5");
+      }, "+=0.2");
     };
 
-    runTimeline();
-  }, [slides, isLoaded]);
+    initScrollAnim();
+  }, []);
 
   // Parallax mouse effect on hero image
   useEffect(() => {
@@ -261,7 +305,7 @@ export default function HeroSlider() {
           {/* SUBTITLE */}
           <p
             ref={subtitleRef}
-            className="font-display text-xl sm:text-2xl text-[#FBF8F3]/88 italic font-light max-w-2xl"
+            className="font-display text-xl sm:text-2xl text-white italic font-light max-w-2xl"
           >
             {activeSlide.subtitle}
           </p>
