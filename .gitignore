@@ -1,0 +1,47 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+.env.development
+.env.production
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma / database
+/prisma/dev.db
+/prisma/dev.db-journal
+/prisma/migrations/
+/dev.db
+/dev.db-journal
+
+# firebase private service account key
+lotus-paradise-firebase-adminsdk-*.json
+*.json.local
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,520 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
+
+/* ================================================
+   CSS CUSTOM PROPERTIES — LUXURY DESIGN TOKENS
+   ================================================ */
+:root {
+  /* Brand Colors */
+  --color-brand-red: #C62828;
+  --color-brand-burgundy: #8B1E1E;
+  --color-brand-indigo: #2C2473;
+  --color-brand-gold: #C89D45;
+  --color-brand-gold-light: #F3D27A;
+  --color-brand-ivory: #FBF8F3;
+  --color-brand-green: #355E3B;
+  --color-brand-charcoal: #1F1F1F;
+
+  /* Gradients */
+  --grad-hero: linear-gradient(180deg, rgba(8,8,8,0.55) 0%, rgba(8,8,8,0.78) 100%);
+  --grad-luxury-red: linear-gradient(135deg, #C62828 0%, #8B1E1E 100%);
+  --grad-luxury-gold: linear-gradient(135deg, #F3D27A 0%, #C89D45 100%);
+  --grad-mountain: linear-gradient(135deg, #355E3B 0%, #2C2473 100%);
+  --grad-page: linear-gradient(180deg, #FFFDF8 0%, #F8F5EE 100%);
+  --grad-card: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(250,247,242,0.9) 100%);
+  --grad-footer: linear-gradient(180deg, #141414 0%, #090909 100%);
+  --grad-glass-border: linear-gradient(135deg, rgba(200,157,69,0.6), rgba(243,210,122,0.2), rgba(200,157,69,0.6));
+
+  /* Glassmorphism */
+  --glass-blur: 20px;
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 25px 60px rgba(0, 0, 0, 0.18);
+
+  /* Cinematic Shadows */
+  --shadow-luxury: 0 10px 40px -10px rgba(44, 36, 115, 0.12);
+  --shadow-golden-glow: 0 0 40px rgba(200, 157, 69, 0.25), 0 10px 40px -10px rgba(198, 40, 40, 0.15);
+  --shadow-cinematic: 0 30px 80px -20px rgba(0, 0, 0, 0.4);
+}
+
+/* ================================================
+   BASE
+   ================================================ */
+html {
+  background-color: #FBF8F3;
+  color: #1F1F1F;
+  font-family: 'Inter', sans-serif;
+  /* Smooth scroll handled by Lenis — override default */
+  scroll-behavior: auto;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #FBF8F3;
+  color: #1F1F1F;
+}
+
+/* ================================================
+   TYPOGRAPHY
+   ================================================ */
+.font-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-sans {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-accent {
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ================================================
+   LUXURY GRADIENT TEXT
+   ================================================ */
+.luxury-text-red {
+  background: var(--grad-luxury-red);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.luxury-text-gold {
+  background: var(--grad-luxury-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ================================================
+   GLASSMORPHISM UTILITIES
+   ================================================ */
+.glass-ivory {
+  background: rgba(251, 248, 243, 0.88);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(200, 157, 69, 0.28);
+}
+
+.glass-dark {
+  background: rgba(44, 36, 115, 0.88);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid rgba(200, 157, 69, 0.32);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(200, 157, 69, 0.22);
+  box-shadow: 0 10px 40px -10px rgba(44, 36, 115, 0.07);
+}
+
+.glass-ultra {
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Animated gradient border for cards */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #C89D45, #F3D27A 40%, #C89D45 70%, #8B1E1E);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.gradient-border:hover::before {
+  opacity: 1;
+}
+
+/* ================================================
+   SHIMMER GOLD GRADIENT
+   ================================================ */
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #C89D45 0%,
+    #FFF1D0 50%,
+    #C89D45 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer-gold 4s linear infinite;
+}
+
+.gold-shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    #C89D45 0%,
+    #F3D27A 50%,
+    #C89D45 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-gold 3s linear infinite;
+}
+
+/* ================================================
+   CLIP-PATH REVEAL UTILITY
+   ================================================ */
+.clip-reveal {
+  clip-path: inset(0 0 100% 0);
+  will-change: clip-path;
+}
+
+.clip-revealed {
+  clip-path: inset(0 0 0% 0);
+  transition: clip-path 1s cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* ================================================
+   HOVER EFFECTS
+   ================================================ */
+.luxury-card-hover {
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease;
+  will-change: transform;
+}
+
+.luxury-card-hover:hover {
+  transform: translateY(-10px) rotate(0.5deg);
+  box-shadow: var(--shadow-golden-glow);
+}
+
+.btn-luxury {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-luxury::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.btn-luxury:hover::after {
+  transform: translateX(100%);
+}
+
+.btn-luxury:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 40px -8px rgba(198, 40, 40, 0.45);
+}
+
+/* ================================================
+   NOISE TEXTURE OVERLAY
+   ================================================ */
+.noise-overlay {
+  position: relative;
+}
+
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.025;
+}
+
+/* ================================================
+   FLOATING GRADIENT BLOBS
+   ================================================ */
+.blob-decoration {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: blob-float 20s ease-in-out infinite;
+}
+
+/* ================================================
+   SCROLL PROGRESS BAR
+   ================================================ */
+#scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, #C62828, #C89D45, #F3D27A, #C89D45);
+  background-size: 200% 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  z-index: 9999;
+  animation: shimmer-gold 3s linear infinite;
+}
+
+/* ================================================
+   SECTION REVEAL (GSAP target classes)
+   ================================================ */
+.gsap-reveal {
+  opacity: 0;
+  transform: translateY(50px);
+  will-change: opacity, transform;
+}
+
+.gsap-reveal-left {
+  opacity: 0;
+  transform: translateX(-60px);
+  will-change: opacity, transform;
+}
+
+.gsap-reveal-right {
+  opacity: 0;
+  transform: translateX(60px);
+  will-change: opacity, transform;
+}
+
+.gsap-clip {
+  clip-path: inset(0 0 100% 0);
+  will-change: clip-path;
+}
+
+/* ================================================
+   MAGNETIC BUTTON
+   ================================================ */
+.magnetic-wrap {
+  display: inline-flex;
+  position: relative;
+  cursor: pointer;
+}
+
+/* ================================================
+   ANIMATED INPUT FOCUS
+   ================================================ */
+.luxury-input {
+  position: relative;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(200,157,69,0.3);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  color: #1F1F1F;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  outline: none;
+  width: 100%;
+}
+
+.luxury-input:focus {
+  border-color: #C62828;
+  box-shadow: 0 0 0 3px rgba(198,40,40,0.12);
+}
+
+.luxury-input-dark {
+  position: relative;
+  background: rgba(10, 10, 15, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  color: #FFFFFF;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  outline: none;
+  width: 100%;
+}
+
+.luxury-input-dark:focus {
+  border-color: #C62828;
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.22);
+}
+
+.luxury-input-dark option {
+  background: #1a1a1f;
+  color: #ffffff;
+}
+
+
+/* ================================================
+   KEYFRAMES
+   ================================================ */
+@keyframes shimmer-gold {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fog-flow {
+  0%, 100% { transform: translateX(-3%) scaleY(1); opacity: 0.3; }
+  50% { transform: translateX(3%) scaleY(1.05); opacity: 0.55; }
+}
+
+@keyframes blob-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -20px) scale(1.05); }
+  50% { transform: translate(-20px, 30px) scale(0.95); }
+  75% { transform: translate(-30px, -10px) scale(1.02); }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(200,157,69,0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(200,157,69,0); }
+  100% { box-shadow: 0 0 0 0 rgba(200,157,69,0); }
+}
+
+@keyframes breathing-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(198,40,40,0.15), 0 20px 50px rgba(0,0,0,0.1); }
+  50% { box-shadow: 0 0 40px rgba(198,40,40,0.3), 0 30px 60px rgba(0,0,0,0.15); }
+}
+
+@keyframes stroke-reveal {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================
+   ANIMATION UTILITY CLASSES
+   ================================================ */
+.animate-blob-float { animation: blob-float 20s ease-in-out infinite; }
+.animate-float-up { animation: float-up 4s ease-in-out infinite; }
+.animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+.animate-breathing { animation: breathing-glow 4s ease-in-out infinite; }
+.animate-fade-in-up { animation: fade-in-up 0.8s ease forwards; }
+
+/* ================================================
+   CUSTOM SCROLLBAR
+   ================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F5EE;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #C89D45, #C62828);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C62828;
+}
+
+/* ================================================
+   REDUCED MOTION ACCESSIBILITY
+   ================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .gsap-reveal,
+  .gsap-reveal-left,
+  .gsap-reveal-right,
+  .gsap-clip {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}
+
+/* ================================================
+   PAGE LOADER
+   ================================================ */
+#page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: linear-gradient(135deg, #1F1F1F 0%, #111111 50%, #0D0D0D 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+#loader-progress-line {
+  width: 200px;
+  height: 1.5px;
+  background: rgba(200,157,69,0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#loader-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #C62828, #C89D45, #F3D27A);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* ================================================
+   SVG MOUNTAIN DIVIDER
+   ================================================ */
+.mountain-divider {
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.mountain-divider svg {
+  display: block;
+  width: 100%;
+}
+
+/* ================================================
+   PREMIUM DARK SLATE & GOLD ADMIN OVERRIDES
+   ================================================ */
+.bg-\[\#15103A\] {
+  background-color: #0A0A0F !important;
+}
+
+.bg-\[\#2C2473\] {
+  background-color: #16161D !important;
+}
+
+.border-\[\#C89D45\]\/30 {
+  border-color: rgba(200, 157, 69, 0.18) !important;
+}
+
+.border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.hover\:bg-\[\#1F1F1F\]\/40:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.bg-black\/30 {
+  background-color: rgba(0, 0, 0, 0.25) !important;
+}
+

@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Role-based helper function for Admin validation
+    function isAdmin() {
+      return request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["Super Admin", "Manager"]);
+    }
+
+    // Guest submission payload validation helper
+    function isValidSubmission() {
+      return request.resource.data.email is string &&
+             request.resource.data.phone is string &&
+             request.resource.data.createdAt != null;
+    }
+
+    // Public Read Collections (Rooms, Hero Slides, Gallery, Experiences, Settings)
+    match /rooms/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /roomAvailability/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /gallery/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /experiences/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /heroSlides/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /siteSettings/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /testimonials/{document} { allow read: if true; allow write: if isAdmin(); }
+    match /homepageSections/{document} { allow read: if true; allow write: if isAdmin(); }
+
+    // Guest Reservation & Enquiry Submissions
+    match /bookings/{document} { allow create: if isValidSubmission(); allow read, update, delete: if isAdmin(); }
+    match /enquiries/{document} { allow create: if isValidSubmission(); allow read, update, delete: if isAdmin(); }
+    match /corporateLeads/{document} { allow create: if isValidSubmission(); allow read, update, delete: if isAdmin(); }
+    match /notifications/{document} { allow create: if true; allow read, update, delete: if isAdmin(); }
+
+    // Users Collection
+    match /users/{userId} { allow read, write: if isAdmin(); }
+  }
+}

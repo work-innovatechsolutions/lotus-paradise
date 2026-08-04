@@ -1,0 +1,122 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Room {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  type        String    // Deluxe, Suite, Family
+  pricePerNight Float
+  capacity    Int
+  bedType     String
+  view        String
+  description String
+  amenities   String    // Comma-separated JSON or string
+  images      String    // JSON array of image URLs
+  featured    Boolean   @default(false)
+  available   Boolean   @default(true)
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Booking {
+  id            String   @id @default(uuid())
+  bookingNumber String   @unique
+  guestName     String
+  guestEmail    String
+  guestPhone    String
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id])
+  checkIn       DateTime
+  checkOut      DateTime
+  guestsCount   Int
+  totalAmount   Float
+  specialRequests String?
+  status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  paymentStatus String   @default("UNPAID")  // UNPAID, PAID, PARTIAL
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model GalleryItem {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // Nature, Rooms, Food, Events, Birding, Sunrise, Guests
+  imageUrl    String
+  altText     String?
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Experience {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  shortDesc   String
+  fullDesc    String
+  duration    String
+  bestTime    String
+  imageUrl    String
+  featured    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CorporateLead {
+  id            String   @id @default(uuid())
+  company       String
+  contactPerson String
+  email         String
+  phone         String
+  employeesCount Int
+  preferredDates String
+  budgetRange   String
+  requirements  String?
+  status        String   @default("NEW") // NEW, CONTACTED, PROPOSAL_SENT, CLOSED
+  createdAt     DateTime @default(now())
+}
+
+model Enquiry {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String
+  subject   String?
+  message   String
+  status    String   @default("UNREAD") // UNREAD, READ, REPLIED
+  createdAt DateTime @default(now())
+}
+
+model BlogPost {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  excerpt     String
+  content     String
+  coverImage  String
+  category    String
+  readTime    String
+  publishedAt DateTime @default(now())
+}
+
+model SiteSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+}
