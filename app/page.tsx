@@ -69,25 +69,15 @@ export default function HomePage() {
 
       {/* 2. DUAL CARD CONTAINER WITH BACKGROUND VIDEO */}
       <section className="relative w-full overflow-hidden z-20 -mt-20 md:-mt-24 py-16 md:py-24">
-        {/* Background Video (Desktop only) */}
+        {/* Background Video */}
         <video
           src="/hotel_video2.mp4"
           autoPlay
           loop
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover z-0 hidden lg:block"
+          className="absolute inset-0 w-full h-full object-cover z-0"
         />
-        {/* Fallback Static Image (Mobile/Tablet only) */}
-        <div className="absolute inset-0 w-full h-full lg:hidden z-0">
-          <Image
-            src="/hotel_night.jpeg"
-            alt="Lotus Paradise Homestay Cozy Night"
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-black/45 z-10" />
 

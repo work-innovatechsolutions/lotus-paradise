@@ -1,17 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { LATPANCHAR_WEATHER } from "@/lib/data";
 import { CloudSun, Eye, Mountain, Wind, ShieldCheck } from "lucide-react";
 
 export default function WeatherWidget() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 1024);
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div 
       className="rounded-2xl p-6 md:p-8 border grid grid-cols-1 md:grid-cols-4 gap-6 items-center"
       style={{
-        background: "rgba(30, 30, 35, 0.13)",
-        backdropFilter: "blur(12px) saturate(180%)",
-        WebkitBackdropFilter: "blur(12px) saturate(180%)",
+        background: isMobile ? "rgba(22, 22, 26, 0.85)" : "rgba(30, 30, 35, 0.13)",
+        backdropFilter: isMobile ? "none" : "blur(12px) saturate(180%)",
+        WebkitBackdropFilter: isMobile ? "none" : "blur(12px) saturate(180%)",
         boxShadow: "0 30px 80px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.12)",
         borderColor: "rgba(255, 255, 255, 0.12)",
       }}

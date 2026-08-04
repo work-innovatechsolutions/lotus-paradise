@@ -11,6 +11,14 @@ export default function QuickBookingCard() {
   const [guests, setGuests] = useState("2 Guests");
   const [roomType, setRoomType] = useState("Deluxe Suite");
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 1024);
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +54,9 @@ export default function QuickBookingCard() {
         ref={cardRef}
         className="rounded-[28px] p-5 md:p-7 border"
         style={{
-          background: "rgba(30, 30, 35, 0.13)",
-          backdropFilter: "blur(12px) saturate(180%)",
-          WebkitBackdropFilter: "blur(12px) saturate(180%)",
+          background: isMobile ? "rgba(22, 22, 26, 0.85)" : "rgba(30, 30, 35, 0.13)",
+          backdropFilter: isMobile ? "none" : "blur(12px) saturate(180%)",
+          WebkitBackdropFilter: isMobile ? "none" : "blur(12px) saturate(180%)",
           boxShadow: "0 30px 80px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.12)",
           borderColor: "rgba(255,255,255,0.12)",
           animation: "breathing-glow 6s ease-in-out infinite",
