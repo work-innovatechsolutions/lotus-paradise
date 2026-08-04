@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, Calendar, Phone } from "lucide-react";
+import { Menu, X, Calendar, Phone, Lock } from "lucide-react";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -141,6 +141,16 @@ export default function Navbar() {
           </a>
 
           <Link
+            href="/admin/login"
+            className={`flex items-center gap-1.5 text-xs font-accent tracking-wider uppercase transition-colors duration-300 ${
+              isScrolled ? "text-[#1F1F1F] hover:text-[#C62828]" : "text-white/85 hover:text-white"
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5 text-[#C89D45]" />
+            <span>Admin</span>
+          </Link>
+
+          <Link
             href="/booking"
             id="navbar-book-btn"
             className={`flex items-center gap-2 text-white px-5 py-2.5 rounded-full font-accent text-xs uppercase tracking-widest font-semibold transition-all duration-300 border border-[#C89D45]/45 btn-luxury ${
@@ -219,6 +229,15 @@ export default function Navbar() {
               <Phone className="w-3.5 h-3.5 text-[#C89D45]" />
               <span>Call Direct</span>
             </a>
+
+            <Link
+              href="/admin/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-center gap-2 text-[#1F1F1F] w-full py-3 rounded-2xl font-accent text-xs font-semibold tracking-widest uppercase border border-dashed border-[#C89D45]/40 mt-1"
+            >
+              <Lock className="w-3.5 h-3.5 text-[#C89D45]" />
+              <span>Admin Portal</span>
+            </Link>
           </div>
         </div>
       </div>

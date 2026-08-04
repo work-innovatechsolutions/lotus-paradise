@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { NotificationService } from "@/services/notification.service";
 import type { AdminNotification } from "@/types/notification";
 import {
@@ -24,6 +24,7 @@ import {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -35,6 +36,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const loadNotifications = async () => {
     const unread = await NotificationService.getUnreadNotifications();
     setNotifications(unread);
+  };
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Clear admin session cookie
+    document.cookie = "lp_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    router.push("/admin/login");
   };
 
   if (pathname === "/admin/login") {
@@ -105,13 +113,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <p className="text-[10px] text-gray-400">Super Admin Role</p>
             </div>
           </div>
-          <Link
-            href="/admin/login"
-            className="p-2 rounded-lg hover:bg-red-600/20 text-gray-300 hover:text-red-400 transition-colors"
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg hover:bg-red-600/20 text-gray-300 hover:text-red-400 transition-colors cursor-pointer"
             title="Log Out"
           >
             <LogOut className="w-4 h-4" />
-          </Link>
+          </button>
         </div>
       </aside>
 

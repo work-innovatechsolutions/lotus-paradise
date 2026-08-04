@@ -8,7 +8,19 @@ import { formatPrice } from "@/lib/utils";
 import { Users, Bed, Mountain, Coffee, Wifi, ChevronLeft, ChevronRight, Calendar, ArrowRight } from "lucide-react";
 import SectionReveal from "./section-reveal";
 
-export default function RoomShowcase() {
+interface RoomShowcaseProps {
+  badge?: string;
+  title?: string;
+  description?: string;
+  hideViewAllButton?: boolean;
+}
+
+export default function RoomShowcase({
+  badge = "Sanctuary of Peaceful Rest",
+  title = "Luxury Mountain Suites",
+  description = "Crafted with warm teak wood, private panoramic verandas, and heated blankets to wrap you in mountain comfort.",
+  hideViewAllButton = false,
+}: RoomShowcaseProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -87,22 +99,24 @@ export default function RoomShowcase() {
         <SectionReveal className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-6">
           <div className="space-y-3 max-w-2xl">
             <span className="text-xs font-accent uppercase tracking-widest text-[#C89D45] font-bold">
-              Sanctuary of Peaceful Rest
+              {badge}
             </span>
             <h2 className="font-serif text-4xl sm:text-5xl font-bold text-white">
-              Luxury Mountain Suites
+              {title}
             </h2>
             <p className="font-display text-lg text-gray-400 italic">
-              Crafted with warm teak wood, private panoramic verandas, and heated blankets to wrap you in mountain comfort.
+              {description}
             </p>
           </div>
-          <Link
-            href="/rooms"
-            className="btn-luxury inline-flex items-center gap-2 text-[#C89D45] px-6 py-3 rounded-full font-accent text-xs uppercase font-bold tracking-widest transition-all border border-[#C89D45] hover:bg-[#C89D45] hover:text-[#1F1F1F] overflow-hidden"
-          >
-            <span className="relative z-10">View All Suites</span>
-            <ArrowRight className="w-4 h-4 relative z-10" />
-          </Link>
+          {!hideViewAllButton && (
+            <Link
+              href="/rooms"
+              className="btn-luxury inline-flex items-center gap-2 text-[#C89D45] px-6 py-3 rounded-full font-accent text-xs uppercase font-bold tracking-widest transition-all border border-[#C89D45] hover:bg-[#C89D45] hover:text-[#1F1F1F] overflow-hidden"
+            >
+              <span className="relative z-10">View All Suites</span>
+              <ArrowRight className="w-4 h-4 relative z-10" />
+            </Link>
+          )}
         </SectionReveal>
 
         {/* HORIZONTAL SCROLL TRACK */}

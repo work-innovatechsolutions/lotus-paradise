@@ -6,6 +6,9 @@ export default function MountainFog() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
+    // Disable heavy canvas animations on mobile devices to prevent scroll lag
+    if (window.innerWidth < 1024) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -80,7 +83,7 @@ export default function MountainFog() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none z-10 opacity-70 mix-blend-screen"
+      className="absolute inset-0 pointer-events-none z-10 opacity-70 mix-blend-screen hidden lg:block"
     />
   );
 }

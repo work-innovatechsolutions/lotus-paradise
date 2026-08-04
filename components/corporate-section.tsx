@@ -56,7 +56,7 @@ export default function CorporateSection() {
   ];
 
   return (
-    <section className="py-24 bg-[#2C2473] text-white relative overflow-hidden">
+    <section className="py-24 bg-[#121214] text-white relative overflow-hidden">
       {/* BACKGROUND DRONE IMAGE SIMULATION */}
       <div className="absolute inset-0 z-0 opacity-25">
         <Image
@@ -65,7 +65,7 @@ export default function CorporateSection() {
           fill
           className="object-cover object-center filter brightness-[0.7]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#2C2473] via-[#2C2473]/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#121214] via-[#121214]/85 to-transparent" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -87,7 +87,12 @@ export default function CorporateSection() {
           {corporateFeatures.map((feat, idx) => (
             <div
               key={idx}
-              className="glass-dark rounded-2xl p-6 border border-[#C89D45]/30 hover:border-[#C89D45] transition-all duration-300 shadow-xl space-y-3"
+              className="rounded-2xl p-6 border border-[#C89D45]/20 hover:border-[#C89D45]/60 transition-all duration-300 shadow-xl space-y-3"
+              style={{
+                background: "rgba(30, 30, 35, 0.13)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+              }}
             >
               <div className="p-3 rounded-xl bg-black/40 inline-block border border-[#C89D45]/30">
                 {feat.icon}
