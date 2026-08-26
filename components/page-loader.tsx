@@ -4,24 +4,39 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 
 export default function PageLoader() {
+  const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
 
-    const fadeTimer = setTimeout(() => {
-      setFading(true);
-    }, 1200);
+    // Smoothly animate progress from 0% to 100%
+    const startTime = Date.now();
+    const duration = 1400; // 1.4 seconds
 
-    const removeTimer = setTimeout(() => {
-      setVisible(false);
-      document.body.style.overflow = "";
-    }, 1800);
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, Math.round((elapsed / duration) * 100));
+      setProgress(pct);
+
+      if (pct >= 100) {
+        clearInterval(interval);
+        // Start fading after 200ms
+        setTimeout(() => {
+          setFading(true);
+        }, 200);
+
+        // Remove from DOM after fade out transition completes
+        setTimeout(() => {
+          setVisible(false);
+          document.body.style.overflow = "";
+        }, 800);
+      }
+    }, 16); // 60fps update
 
     return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
+      clearInterval(interval);
       document.body.style.overflow = "";
     };
   }, []);
@@ -41,7 +56,8 @@ export default function PageLoader() {
         alignItems: "center",
         justifyContent: "center",
         opacity: fading ? 0 : 1,
-        transition: "opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+        transform: fading ? "scale(1.02)" : "scale(1)",
+        transition: "opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
         pointerEvents: fading ? "none" : "auto",
       }}
     >
@@ -193,26 +209,42 @@ export default function PageLoader() {
           </defs>
         </svg>
 
-        {/* PROGRESS BAR */}
-        <div
-          style={{
-            width: "200px",
-            height: "2px",
-            background: "rgba(200,157,69,0.18)",
-            borderRadius: "2px",
-            overflow: "hidden",
-          }}
-        >
+        {/* PROGRESS BAR & PERCENTAGE */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
           <div
-            className="animate-pulse"
             style={{
-              height: "100%",
-              width: "100%",
-              background:
-                "linear-gradient(90deg, #C62828, #C89D45, #F3D27A, #C89D45)",
-              borderRadius: "2px",
+              width: "220px",
+              height: "3px",
+              background: "rgba(255,255,255,0.12)",
+              borderRadius: "4px",
+              overflow: "hidden",
+              position: "relative",
+              border: "1px solid rgba(200,157,69,0.3)",
             }}
-          />
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${progress}%`,
+                background:
+                  "linear-gradient(90deg, #C62828 0%, #C89D45 60%, #F3D27A 100%)",
+                borderRadius: "4px",
+                transition: "width 0.05s linear",
+                boxShadow: "0 0 10px rgba(243,210,122,0.6)",
+              }}
+            />
+          </div>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: "10px",
+              color: "rgba(200,157,69,0.9)",
+              letterSpacing: "0.15em",
+              fontWeight: 600,
+            }}
+          >
+            {progress}%
+          </span>
         </div>
 
         {/* Gold bottom accent line */}
