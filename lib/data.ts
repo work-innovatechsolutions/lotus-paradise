@@ -99,11 +99,11 @@ export interface BlogArticle {
 export const HERO_SLIDES: HeroSlide[] = [
   {
     id: "slide-1",
-    title: "Wake Up To The Mighty Kanchenjunga",
+    title: "New Himalayan Horizon",
     subtitle: "A Luxury Mountain Retreat in Latpanchar, North Bengal",
     location: "Latpanchar, Mahananda Wildlife Sanctuary (4,500 ft)",
-    image: "/images/hero/bengal-latpanchar.jpg.jpeg",
-    badge: "Darjeeling Colonial Heritage",
+    image: "/images/hero/himalayan-horizon-view.jpeg",
+    badge: "Colonial Charm",
   },
   {
     id: "slide-2",
