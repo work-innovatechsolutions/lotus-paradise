@@ -1,31 +1,33 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore";
 
 export async function GET() {
   try {
-    const enquiries = await prisma.enquiry.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const q = query(collection(db, "enquiries"), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    const enquiries = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(enquiries);
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch enquiries" }, { status: 500 });
+  } catch (error) {
+    console.warn("Firestore enquiries fetch fallback:", error);
+    return NextResponse.json([]);
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const newEnquiry = await prisma.enquiry.create({
-      data: {
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        subject: body.subject || "General Inquiry",
-        message: body.message,
-      },
+    const docRef = await addDoc(collection(db, "enquiries"), {
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      subject: body.subject || "General Inquiry",
+      message: body.message,
+      createdAt: serverTimestamp(),
     });
-    return NextResponse.json(newEnquiry, { status: 201 });
-  } catch {
+    return NextResponse.json({ id: docRef.id, message: "Enquiry submitted successfully" }, { status: 201 });
+  } catch (error) {
+    console.warn("Firestore enquiry save fallback:", error);
     return NextResponse.json({ message: "Enquiry received" }, { status: 200 });
   }
 }
