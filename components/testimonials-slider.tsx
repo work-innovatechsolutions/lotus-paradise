@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { TESTIMONIALS } from "@/lib/data";
 import { Star, Quote, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
@@ -8,49 +8,17 @@ import SectionReveal from "./section-reveal";
 
 export default function TestimonialsSlider() {
   const [activeIdx, setActiveIdx] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   const goTo = (idx: number) => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-
-    const init = async () => {
-      const { gsap } = await import("gsap");
-      const card = cardRef.current;
-      if (!card) { setActiveIdx(idx); setIsAnimating(false); return; }
-
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (prefersReduced) { setActiveIdx(idx); setIsAnimating(false); return; }
-
-      gsap.to(card, {
-        opacity: 0,
-        y: 20,
-        scale: 0.97,
-        duration: 0.35,
-        ease: "power2.in",
-        onComplete: () => {
-          setActiveIdx(idx);
-          gsap.fromTo(
-            card,
-            { opacity: 0, y: 20, scale: 0.97 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out", onComplete: () => setIsAnimating(false) }
-          );
-        },
-      });
-    };
-
-    init();
+    setActiveIdx(idx);
   };
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const next = (activeIdx + 1) % TESTIMONIALS.length;
-      goTo(next);
+      setActiveIdx((prev) => (prev + 1) % TESTIMONIALS.length);
     }, 7000);
     return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIdx]);
+  }, []);
 
   const activeTestimonial = TESTIMONIALS[activeIdx];
 
@@ -124,7 +92,6 @@ export default function TestimonialsSlider() {
 
           {/* MAIN ACTIVE CARD */}
           <div
-            ref={cardRef}
             className="relative z-10 rounded-3xl p-8 md:p-14 border text-center space-y-6"
             style={{
               background: "rgba(255,255,255,0.9)",

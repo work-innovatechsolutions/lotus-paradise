@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
 export default function SmoothScroll({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
   useEffect(() => {
-    // Disable smooth scroll on mobile devices (native kinetic touch is already hardware-accelerated)
-    if (window.innerWidth < 1024) return;
+    // Disable smooth scroll on admin dashboard or on mobile devices
+    if (pathname?.startsWith("/admin") || window.innerWidth < 1024) return;
 
     const lenis = new Lenis({
       duration: 1.2,
@@ -15,17 +18,20 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
       wheelMultiplier: 1.0,
     });
 
+    let animationFrameId: number;
+
     function raf(time: number) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      animationFrameId = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
+    animationFrameId = requestAnimationFrame(raf);
 
     return () => {
+      cancelAnimationFrame(animationFrameId);
       lenis.destroy();
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 }

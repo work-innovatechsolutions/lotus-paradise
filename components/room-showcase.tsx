@@ -3,9 +3,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ROOMS } from "@/lib/data";
+import { useRoomStore } from "@/lib/room-store";
 import { formatPrice } from "@/lib/utils";
-import { Users, Bed, Mountain, Coffee, Wifi, ChevronLeft, ChevronRight, Calendar, ArrowRight } from "lucide-react";
+import { Users, Bed, Mountain, Coffee, Wifi, ChevronLeft, ChevronRight, Calendar, ArrowRight, MapPin } from "lucide-react";
 import SectionReveal from "./section-reveal";
 
 interface RoomShowcaseProps {
@@ -17,69 +17,16 @@ interface RoomShowcaseProps {
 
 export default function RoomShowcase({
   badge = "Sanctuary of Peaceful Rest",
-  title = "Luxury Mountain Suites",
+  title = "Luxury Mountain Rooms",
   description = "Crafted with warm teak wood, private panoramic verandas, and heated blankets to wrap you in mountain comfort.",
   hideViewAllButton = false,
 }: RoomShowcaseProps) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-
-  // GSAP scroll-driven horizontal scroll for room cards on larger screens
-  useEffect(() => {
-    let ctx: any;
-
-    const initScroll = async () => {
-      if (window.innerWidth < 1024) return; // Only on desktop
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (prefersReduced) return;
-
-      const { gsap } = await import("gsap");
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
-      gsap.registerPlugin(ScrollTrigger);
-
-      const track = trackRef.current;
-      const section = sectionRef.current;
-      if (!track || !section) return;
-
-      ctx = gsap.context(() => {
-        const totalWidth = track.scrollWidth - track.offsetWidth;
-
-        gsap.to(track, {
-          x: -totalWidth,
-          ease: "none",
-          scrollTrigger: {
-            trigger: section,
-            start: "top top",
-            end: () => `+=${totalWidth + 400}`,
-            pin: true,
-            scrub: 1.2,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
-        });
-      }, section);
-
-      // Refresh ScrollTrigger to recalculate offsets after initial layout settles
-      ScrollTrigger.refresh();
-      
-      // Fallback refresh for late layout changes
-      const timer = setTimeout(() => {
-        ScrollTrigger.refresh();
-      }, 800);
-
-      return () => clearTimeout(timer);
-    };
-
-    initScroll();
-
-    return () => {
-      if (ctx) ctx.revert();
-    };
-  }, []);
+  const { rooms } = useRoomStore();
+  const featuredRooms = rooms.filter((r) => r.featured && r.available);
+  const showViewAll = !hideViewAllButton;
 
   return (
     <section
-      ref={sectionRef}
       className="py-24 bg-[#1F1F1F] text-white relative overflow-hidden"
     >
       {/* Gradient blob decorations */}
@@ -108,28 +55,23 @@ export default function RoomShowcase({
               {description}
             </p>
           </div>
-          {!hideViewAllButton && (
+
+          {showViewAll && (
             <Link
               href="/rooms"
-              className="btn-luxury inline-flex items-center gap-2 text-[#C89D45] px-6 py-3 rounded-full font-accent text-xs uppercase font-bold tracking-widest transition-all border border-[#C89D45] hover:bg-[#C89D45] hover:text-[#1F1F1F] overflow-hidden"
+              className="inline-flex items-center gap-2 text-xs font-accent uppercase tracking-widest text-[#C89D45] hover:text-white font-bold transition-colors group self-start md:self-auto"
             >
-              <span className="relative z-10">View All Suites</span>
-              <ArrowRight className="w-4 h-4 relative z-10" />
+              <span>Explore All Rooms</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           )}
         </SectionReveal>
 
-        {/* HORIZONTAL SCROLL TRACK */}
-        <div
-          ref={trackRef}
-          className="flex gap-8 lg:will-change-transform"
-          style={{ width: "max-content" }}
-        >
-          {ROOMS.map((room, idx) => (
-            <SectionReveal key={room.id} delay={idx * 0.15} direction="right">
-              <div className="w-[340px] sm:w-[380px]">
-                <RoomCard room={room} />
-              </div>
+        {/* ROOMS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {featuredRooms.map((room, idx) => (
+            <SectionReveal key={room.id} delay={idx * 0.1} direction="up">
+              <RoomCard room={room} />
             </SectionReveal>
           ))}
         </div>
@@ -138,7 +80,9 @@ export default function RoomShowcase({
   );
 }
 
-function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
+type AnyRoom = { id: string; title: string; type: string; pricePerNight: number; capacity: number; bedType: string; view: string; location: string; description: string; amenities: string[]; images: string[]; featured: boolean; };
+
+function RoomCard({ room }: { room: AnyRoom }) {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -183,14 +127,7 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
   return (
     <div
       ref={cardRef}
-      className="rounded-3xl overflow-hidden flex flex-col group border border-[#C89D45]/25 hover:border-[#C89D45]/60 transition-all duration-500 h-[580px]"
-      style={{
-        background: "rgba(44,36,115,0.35)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        transition: "transform 0.3s ease, box-shadow 0.4s ease, border-color 0.4s ease",
-        boxShadow: "0 10px 40px -10px rgba(0,0,0,0.4)",
-      }}
+      className="bg-white rounded-3xl overflow-hidden flex flex-col group border border-[#C89D45]/30 hover:border-[#C89D45] transition-all duration-300 hover:-translate-y-2 h-[580px] shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
     >
       {/* IMAGE */}
       <div className="relative h-64 w-full overflow-hidden">
@@ -200,7 +137,7 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
           fill
           className="object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/25" />
 
         {/* Price badge — gradient */}
         <div
@@ -213,8 +150,8 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
 
         {/* Type badge */}
         <div
-          className="absolute top-4 left-4 text-[#C89D45] px-3 py-1 rounded-full text-xs font-accent uppercase font-bold tracking-widest border border-[#C89D45]/40"
-          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(12px)" }}
+          className="absolute top-4 left-4 text-[#C89D45] px-3 py-1 rounded-full text-xs font-accent uppercase font-bold tracking-widest border border-[#C89D45]/40 shadow-sm"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(12px)" }}
         >
           {room.type}
         </div>
@@ -224,14 +161,14 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
           <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-10">
             <button
               onClick={prevImg}
-              className="p-1.5 rounded-full bg-black/55 hover:bg-[#C62828] text-white border border-[#C89D45]/40 transition-all hover:scale-110"
+              className="p-1.5 rounded-full bg-black/55 hover:bg-[#C62828] text-white border border-[#C89D45]/40 transition-all hover:scale-110 shadow"
               aria-label="Previous image"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={nextImg}
-              className="p-1.5 rounded-full bg-black/55 hover:bg-[#C62828] text-white border border-[#C89D45]/40 transition-all hover:scale-110"
+              className="p-1.5 rounded-full bg-black/55 hover:bg-[#C62828] text-white border border-[#C89D45]/40 transition-all hover:scale-110 shadow"
               aria-label="Next image"
             >
               <ChevronRight className="w-4 h-4" />
@@ -240,23 +177,27 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
         )}
       </div>
 
-      {/* CARD CONTENT */}
-      <div className="p-6 flex-1 flex flex-col justify-between space-y-5">
+      {/* CARD CONTENT — LIGHT THEME */}
+      <div className="p-6 flex-1 flex flex-col justify-between space-y-5 bg-white">
         <div className="space-y-2.5">
-          <h3 className="font-serif text-2xl font-bold text-white group-hover:text-[#C89D45] transition-colors duration-300">
+          <h3 className="font-serif text-2xl font-bold text-[#1F1F1F] group-hover:text-[#C62828] transition-colors duration-300">
             {room.title}
           </h3>
-          <p className="font-display text-sm italic text-[#C89D45] flex items-center gap-1.5">
-            <Mountain className="w-4 h-4 shrink-0 text-[#C62828]" />
+          <p className="font-accent text-xs text-[#8B1E1E] font-semibold flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-[#C62828]" />
+            {room.location}
+          </p>
+          <p className="font-display text-sm italic text-gray-600 flex items-center gap-1.5">
+            <Mountain className="w-4 h-4 shrink-0 text-[#C89D45]" />
             <span>{room.view}</span>
           </p>
-          <p className="font-sans text-xs text-gray-400 line-clamp-2 leading-relaxed">
+          <p className="font-sans text-xs text-gray-600 line-clamp-2 leading-relaxed">
             {room.description}
           </p>
         </div>
 
         {/* Specs */}
-        <div className="grid grid-cols-2 gap-2 text-xs font-sans text-gray-400 pt-3 border-t border-white/10">
+        <div className="grid grid-cols-2 gap-2 text-xs font-sans text-gray-700 pt-3 border-t border-gray-100">
           <div className="flex items-center gap-1.5">
             <Bed className="w-3.5 h-3.5 text-[#C89D45]" />
             <span>{room.bedType}</span>
@@ -278,11 +219,11 @@ function RoomCard({ room }: { room: (typeof ROOMS)[0] }) {
         {/* CTA */}
         <Link
           href={`/booking?roomId=${room.id}`}
-          className="btn-luxury w-full text-white py-3.5 rounded-2xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-[#C89D45]/40 overflow-hidden"
+          className="btn-luxury w-full text-white py-3.5 rounded-2xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-[#C89D45]/40 overflow-hidden shadow-md"
           style={{ background: "linear-gradient(135deg, #C62828, #8B1E1E)" }}
         >
           <Calendar className="w-4 h-4 text-[#C89D45] relative z-10" />
-          <span className="relative z-10">Reserve Suite</span>
+          <span className="relative z-10">Reserve Room</span>
         </Link>
       </div>
     </div>

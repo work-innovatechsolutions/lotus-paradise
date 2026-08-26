@@ -1,48 +1,41 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 
 export default function ScrollProgress() {
-  const barRef = useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    let gsapInstance: typeof import("gsap") | null = null;
-
-    const init = async () => {
-      const { gsap } = await import("gsap");
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
-      gsap.registerPlugin(ScrollTrigger);
-      gsapInstance = { gsap } as typeof import("gsap");
-
-      gsap.to(barRef.current, {
-        scaleX: 1,
-        ease: "none",
-        scrollTrigger: {
-          trigger: document.body,
-          start: "top top",
-          end: "bottom bottom",
-          scrub: 0.3,
-        },
-      });
-    };
-
-    init();
-
-    return () => {
-      if (gsapInstance) {
-        // ScrollTrigger cleanup handled globally
+    const handleScroll = () => {
+      const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalScroll > 0) {
+        setProgress(Math.min(100, Math.max(0, (window.scrollY / totalScroll) * 100)));
       }
     };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
     <div
-      ref={barRef}
       id="scroll-progress-bar"
       role="progressbar"
       aria-label="Page scroll progress"
+      aria-valuenow={Math.round(progress)}
       aria-valuemin={0}
       aria-valuemax={100}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        height: "3px",
+        width: `${progress}%`,
+        background: "linear-gradient(90deg, #C62828, #C89D45)",
+        zIndex: 9999,
+        pointerEvents: "none",
+        transition: "width 0.1s linear",
+      }}
     />
   );
 }

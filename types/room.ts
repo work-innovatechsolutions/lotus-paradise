@@ -14,6 +14,7 @@ export interface Room {
   bedType: string;
   view: string;
   size: string;
+  location: string;
   description: string;
   amenities: string[];
   images: RoomImage[];

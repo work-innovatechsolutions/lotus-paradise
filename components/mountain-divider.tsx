@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import React from "react";
 
 interface MountainDividerProps {
   /** "ivory" = light background below, "dark" = dark background below */
@@ -16,43 +16,7 @@ export default function MountainDivider({
   colorAbove = "#FBF8F3",
   colorBelow = "#1F1F1F",
   className = "",
-  animated = true,
 }: MountainDividerProps) {
-  const pathRef = useRef<SVGPathElement>(null);
-
-  useEffect(() => {
-    if (!animated) return;
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
-
-    const init = async () => {
-      const { gsap } = await import("gsap");
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
-      gsap.registerPlugin(ScrollTrigger);
-
-      if (!pathRef.current) return;
-      const length = pathRef.current.getTotalLength?.() ?? 1000;
-
-      gsap.fromTo(
-        pathRef.current,
-        { strokeDasharray: length, strokeDashoffset: length, opacity: 0 },
-        {
-          strokeDashoffset: 0,
-          opacity: 1,
-          duration: 2,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: pathRef.current,
-            start: "top 90%",
-            once: true,
-          },
-        }
-      );
-    };
-
-    init();
-  }, [animated]);
-
   const transform = facing === "down" ? "scale(1, -1)" : undefined;
 
   return (
@@ -67,7 +31,6 @@ export default function MountainDivider({
         style={{ display: "block", width: "100%", transform, background: colorAbove }}
       >
         <path
-          ref={pathRef}
           d="M0,80 L0,50 L60,30 L120,55 L200,15 L280,45 L360,5 L440,38 L520,20 L600,50 L680,10 L760,42 L840,22 L920,48 L1000,8 L1080,38 L1160,18 L1240,52 L1320,28 L1380,48 L1440,30 L1440,80 Z"
           fill={colorBelow}
           stroke="#C89D45"

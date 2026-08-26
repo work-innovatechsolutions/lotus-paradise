@@ -80,12 +80,12 @@ export default function Footer() {
           {/* BRAND COLUMN */}
           <SectionReveal className="lg:col-span-4 space-y-5" direction="up">
             <Link href="/" className="flex items-center group">
-              <div className="relative w-44 h-12 group-hover:scale-[1.03] transition-transform duration-300">
+              <div className="relative w-48 h-20 group-hover:scale-[1.03] transition-transform duration-300">
                 <Image
-                  src="/LotusParadise.png"
-                  alt="Lotus Paradise Homestay — Village Latpanchar, Sitong, Darjeeling"
+                  src="/The Cometas Logo.png"
+                  alt="The Cometas — Luxury Himalayan Homestay Latpanchar"
                   fill
-                  className="object-contain drop-shadow-md"
+                  className="object-contain object-left drop-shadow-sm"
                 />
               </div>
             </Link>
@@ -135,7 +135,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-xs font-accent text-[#555] tracking-wide">
               {[
                 { name: "Home", href: "/" },
-                { name: "Rooms & Suites", href: "/rooms" },
+                { name: "Our Rooms", href: "/rooms" },
                 { name: "Signature Experiences", href: "/experiences" },
                 { name: "Photo Gallery", href: "/gallery" },
                 { name: "Corporate Offsites", href: "/corporate" },

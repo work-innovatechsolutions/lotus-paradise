@@ -8,6 +8,7 @@ import BirdsShowcase from "@/components/birds-showcase";
 import SeasonalGuide from "@/components/seasonal-guide";
 import ExperienceStoryCard from "@/components/experience-story-card";
 import RoomShowcase from "@/components/room-showcase";
+import PropertyShowcase from "@/components/property-showcase";
 import CorporateSection from "@/components/corporate-section";
 import AttractionMap from "@/components/attraction-map";
 import GalleryMasonry from "@/components/gallery-masonry";
@@ -87,6 +88,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* 3. OUR DISTINCT MOUNTAIN PROPERTIES SHOWCASE */}
+      <PropertyShowcase />
 
       {/* 4. ABOUT SECTION — STORYTELLING WITH GSAP REVEALS */}
       <section className="py-28 relative overflow-hidden noise-overlay" style={{ background: "linear-gradient(180deg, #FFFDF8 0%, #F8F5EE 100%)" }}>
@@ -197,7 +200,7 @@ export default function HomePage() {
                     className="btn-luxury relative border-2 border-[#C89D45] text-[#1F1F1F] hover:text-white px-9 py-3.5 rounded-full font-accent text-xs font-bold uppercase tracking-widest overflow-hidden group"
                     style={{}}
                   >
-                    <span className="relative z-10 group-hover:text-white transition-colors">View Suites</span>
+                    <span className="relative z-10 group-hover:text-white transition-colors">View Rooms</span>
                     <div className="absolute inset-0 bg-gradient-luxury-gold opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </Link>
                 </div>
@@ -228,7 +231,7 @@ export default function HomePage() {
               Unrivalled Mountain Hospitality
             </span>
             <h2 className="font-serif text-3xl sm:text-5xl font-bold text-[#1F1F1F]">
-              Why Choose Lotus Paradise
+              Why Choose The Cometas?
             </h2>
             <p className="font-display text-lg text-gray-500 italic">
               Thoughtfully curated amenities and natural wonders designed for total relaxation.

@@ -24,30 +24,6 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // GSAP logo scale on scroll
-  useEffect(() => {
-    const init = async () => {
-      const { gsap } = await import("gsap");
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
-      gsap.registerPlugin(ScrollTrigger);
-
-      const logoEl = navRef.current?.querySelector(".navbar-logo");
-      if (!logoEl) return;
-
-      gsap.to(logoEl, {
-        scale: 0.85,
-        ease: "none",
-        scrollTrigger: {
-          trigger: document.body,
-          start: "top top",
-          end: "200px top",
-          scrub: 0.5,
-        },
-      });
-    };
-    init();
-  }, []);
-
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Rooms", href: "/rooms" },
@@ -82,18 +58,21 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
 
-        {/* LOGO — horizontal banner */}
-        <Link href="/" className="navbar-logo flex items-center group" aria-label="Lotus Paradise Homepage">
+        {/* LOGO — The Cometas */}
+        <Link href="/" className="navbar-logo flex items-center group" aria-label="The Cometas — Lotus Paradise Homepage">
           <div
-            className="relative transition-all duration-300"
-            style={{ width: isScrolled ? "140px" : "160px", height: isScrolled ? "38px" : "44px" }}
+            className={`relative transition-all duration-300 flex items-center justify-center ${
+              isScrolled
+                ? "w-[125px] h-[52px]"
+                : "w-[145px] h-[60px] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-[#C89D45]/35 shadow-md group-hover:bg-white/95"
+            }`}
           >
             <Image
-              src="/LotusParadise.png"
-              alt="Lotus Paradise Homestay — Village Latpanchar, Sitong, Darjeeling"
+              src="/The Cometas Logo.png"
+              alt="The Cometas — Luxury Himalayan Homestay"
               fill
-              className="object-contain drop-shadow-md group-hover:scale-[1.03] transition-transform duration-300"
-              style={{ filter: isScrolled ? "none" : "drop-shadow(0 2px 8px rgba(0,0,0,0.5)) brightness(1.05)" }}
+              priority
+              className="object-contain drop-shadow-sm group-hover:scale-[1.03] transition-transform duration-300"
             />
           </div>
         </Link>

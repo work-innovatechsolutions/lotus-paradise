@@ -27,6 +27,7 @@ export interface RoomData {
   bedType: string;
   view: string;
   size: string;
+  location: string;
   description: string;
   amenities: string[];
   images: string[];
@@ -261,6 +262,7 @@ export const ROOMS: RoomData[] = [
     bedType: "King Bed + Plush Daybed",
     view: "Panoramic Kanchenjunga & Forest Valley View",
     size: "420 sq ft",
+    location: "Latpanchar, North Bengal",
     description: "Our signature luxury suite features a private teak wood balcony overlooking the snow-capped Himalayan ranges, bespoke hand-carved furnishings, electric blanket warming, and attached marble bathroom with instant geyser.",
     amenities: [
       "Kanchenjunga Balcony",
@@ -288,6 +290,7 @@ export const ROOMS: RoomData[] = [
     bedType: "2 Queen Beds + Sofa Sitting",
     view: "Valley Garden & Pine Forest View",
     size: "580 sq ft",
+    location: "Latpanchar, North Bengal",
     description: "Designed for families and groups seeking spacious comfort. Features two separate bedroom spaces, traditional wooden paneling, private seating lounge, and garden access.",
     amenities: [
       "Two Queen Beds",
@@ -315,6 +318,7 @@ export const ROOMS: RoomData[] = [
     bedType: "Queen Canopy Bed",
     view: "Mist Forest & Sunrise View",
     size: "340 sq ft",
+    location: "Sittong, Darjeeling",
     description: "An intimate, romantic haven designed with warm ivory tones, colonial lamps, plush bedding, and floor-to-ceiling glass windows framing morning Himalayan mist.",
     amenities: [
       "Canopy Queen Bed",

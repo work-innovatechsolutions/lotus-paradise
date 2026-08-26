@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { MapPin, Phone, Mail, Send, MessageCircle, Check } from "lucide-react";
+import { MapPin, Phone, Mail, Send, Check } from "lucide-react";
+import WhatsAppIcon from "@/components/whatsapp-icon";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -182,9 +183,9 @@ export default function ContactPage() {
                   href={`https://wa.me/919832012345?text=${whatsappMessage}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-md"
+                  className="bg-[#25D366] hover:bg-[#1EBE5D] text-white px-6 py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md transition-colors"
                 >
-                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <WhatsAppIcon className="w-4 h-4 fill-white shrink-0" />
                   <span>WhatsApp Now</span>
                 </a>
               </div>

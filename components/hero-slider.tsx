@@ -29,6 +29,18 @@ export default function HeroSlider() {
       setSlides(activeSlides);
     }
     load();
+
+    const handleUpdate = () => {
+      load();
+    };
+
+    window.addEventListener("lp_hero_slides_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("lp_hero_slides_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, []);
 
   // Auto-advance slides

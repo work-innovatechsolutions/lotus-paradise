@@ -387,14 +387,16 @@ export default function AdminLoginPage() {
           >
             {/* Logo Section */}
             <div ref={logoRef} className="flex flex-col items-center text-center space-y-3">
-              <div className="relative w-40 h-11">
-                <Image
-                  src="/LotusParadise.png"
-                  alt="Lotus Paradise Logo"
-                  fill
-                  priority
-                  className="object-contain"
-                />
+              <div className="bg-white/95 px-6 py-3 rounded-2xl shadow-xl border border-[#C89D45]/40 backdrop-blur-md">
+                <div className="relative w-44 h-16">
+                  <Image
+                    src="/The Cometas Logo.png"
+                    alt="The Cometas Logo"
+                    fill
+                    priority
+                    className="object-contain"
+                  />
+                </div>
               </div>
               <div className="h-[1px] w-24 bg-gradient-to-r from-transparent via-[#C89D45]/50 to-transparent pt-1" />
             </div>

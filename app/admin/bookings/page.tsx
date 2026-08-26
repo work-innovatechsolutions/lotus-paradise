@@ -13,6 +13,18 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     loadBookings();
+
+    const handleUpdate = () => {
+      loadBookings();
+    };
+
+    window.addEventListener("lp_bookings_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("lp_bookings_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, []);
 
   const loadBookings = async () => {
@@ -26,7 +38,7 @@ export default function AdminBookingsPage() {
   };
 
   const exportCSV = () => {
-    const headers = ["Booking ID", "Guest", "Phone", "Email", "Suite", "CheckIn", "CheckOut", "Guests", "Total Amount", "Status"];
+    const headers = ["Booking ID", "Guest", "Phone", "Email", "Room", "CheckIn", "CheckOut", "Guests", "Total Amount", "Status"];
     const rows = bookings.map((b) => [
       b.bookingNumber,
       b.guestName,
@@ -116,7 +128,7 @@ export default function AdminBookingsPage() {
             <tr className="border-b border-white/10 text-gray-400 font-accent uppercase text-[10px]">
               <th className="pb-3">Ref ID</th>
               <th className="pb-3">Guest Info</th>
-              <th className="pb-3">Suite Reserved</th>
+              <th className="pb-3">Room Reserved</th>
               <th className="pb-3">Check-In / Out</th>
               <th className="pb-3">Price Snapshot</th>
               <th className="pb-3">Status</th>

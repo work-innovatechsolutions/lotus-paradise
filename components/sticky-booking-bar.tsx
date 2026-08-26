@@ -51,7 +51,7 @@ export default function StickyBookingBar() {
           </div>
           <div>
             <h4 className="font-serif text-base font-bold text-[#1F1F1F] leading-tight">
-              Lotus Paradise Himalayan Retreat
+              The Cometas Himalayan Retreat
             </h4>
             <p className="text-xs font-accent text-[#C62828] font-semibold">
               Latpanchar • Rooms from ₹3,900 / Night
@@ -61,7 +61,7 @@ export default function StickyBookingBar() {
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
           <span className="text-xs font-accent uppercase tracking-wider text-[#555] font-semibold sm:hidden">
-            Lotus Paradise Homestay
+            The Cometas Homestay
           </span>
           <Link
             href="/booking"

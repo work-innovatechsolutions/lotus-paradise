@@ -27,7 +27,7 @@ export default async function RoomDetailPage({ params }: { params: Promise<{ id:
         className="inline-flex items-center gap-2 text-xs font-accent uppercase font-bold text-[#C62828] hover:text-[#2C2473]"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>Back to All Suites</span>
+        <span>Back to All Rooms</span>
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -102,7 +102,7 @@ export default async function RoomDetailPage({ params }: { params: Promise<{ id:
               className="w-full bg-[#C62828] hover:bg-[#8B1E1E] text-white py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg border border-[#C89D45]"
             >
               <Calendar className="w-4 h-4 text-[#C89D45]" />
-              <span>Reserve Suite Now</span>
+              <span>Reserve Room Now</span>
             </Link>
           </div>
         </div>

@@ -7,6 +7,7 @@ import FloatingWhatsApp from "@/components/floating-whatsapp";
 import StickyBookingBar from "@/components/sticky-booking-bar";
 import AnimationProviders from "@/components/animation-providers";
 import { constructMetadata, generateHotelSchema } from "@/lib/seo";
+import { RoomStoreProvider } from "@/lib/room-store";
 
 export const metadata: Metadata = constructMetadata();
 
@@ -29,13 +30,15 @@ export default function RootLayout({
         {/* PAGE LOADER, SCROLL PROGRESS, GSAP INIT */}
         <AnimationProviders />
 
-        <SmoothScroll>
-          <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <Footer />
-          <StickyBookingBar />
-          <FloatingWhatsApp />
-        </SmoothScroll>
+        <RoomStoreProvider>
+          <SmoothScroll>
+            <Navbar />
+            <main className="min-h-screen">{children}</main>
+            <Footer />
+            <StickyBookingBar />
+            <FloatingWhatsApp />
+          </SmoothScroll>
+        </RoomStoreProvider>
       </body>
     </html>
   );

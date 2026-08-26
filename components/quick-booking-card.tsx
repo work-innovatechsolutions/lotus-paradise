@@ -2,14 +2,20 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar as CalendarIcon, Users, Bed, Search, ArrowRight } from "lucide-react";
+import { Calendar as CalendarIcon, Users, MapPin, Building2, Search, ArrowRight } from "lucide-react";
+import { useRoomStore } from "@/lib/room-store";
 
 export default function QuickBookingCard() {
   const router = useRouter();
-  const [checkIn, setCheckIn] = useState("2026-08-15");
-  const [checkOut, setCheckOut] = useState("2026-08-18");
+  const { properties } = useRoomStore();
+
+  const today = new Date().toISOString().split("T")[0];
+  const defaultCheckOut = new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0];
+
+  const [checkIn, setCheckIn] = useState(today);
+  const [checkOut, setCheckOut] = useState(defaultCheckOut);
   const [guests, setGuests] = useState("2 Guests");
-  const [roomType, setRoomType] = useState("Deluxe Suite");
+  const [propertyId, setPropertyId] = useState("all");
   const cardRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -22,31 +28,16 @@ export default function QuickBookingCard() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(
-      `/booking?checkIn=${checkIn}&checkOut=${checkOut}&guests=${encodeURIComponent(guests)}&roomType=${encodeURIComponent(roomType)}`
-    );
+    const params = new URLSearchParams({
+      checkIn,
+      checkOut,
+      guests,
+    });
+    if (propertyId !== "all") {
+      params.set("propertyId", propertyId);
+    }
+    router.push(`/booking?${params.toString()}`);
   };
-
-  // Animate card float in from below
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-
-    const init = async () => {
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const { gsap } = await import("gsap");
-
-      if (prefersReduced) return;
-
-      gsap.fromTo(
-        el,
-        { y: 60, opacity: 0 },
-        { y: 0, opacity: 1, duration: 1.1, ease: "power3.out", delay: 0.2 }
-      );
-    };
-
-    init();
-  }, []);
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 relative z-20">
@@ -96,6 +87,7 @@ export default function QuickBookingCard() {
                 id="booking-checkin"
                 type="date"
                 value={checkIn}
+                min={today}
                 onChange={(e) => setCheckIn(e.target.value)}
                 className="luxury-input-dark"
               />
@@ -117,6 +109,7 @@ export default function QuickBookingCard() {
                 id="booking-checkout"
                 type="date"
                 value={checkOut}
+                min={checkIn || today}
                 onChange={(e) => setCheckOut(e.target.value)}
                 className="luxury-input-dark"
               />
@@ -150,26 +143,28 @@ export default function QuickBookingCard() {
             </div>
           </div>
 
-          {/* ROOM TYPE */}
+          {/* PROPERTY LOCATION */}
           <div className="flex flex-col gap-1.5 group">
             <label
               className="text-[11px] font-accent uppercase tracking-wider text-[#C89D45] font-bold flex items-center gap-1.5"
-              htmlFor="booking-roomtype"
+              htmlFor="booking-location"
             >
-              <Bed className="w-3.5 h-3.5 text-[#C89D45]" />
-              <span>Room Type</span>
+              <MapPin className="w-3.5 h-3.5 text-[#C89D45]" />
+              <span>Property Location</span>
             </label>
             <div className="relative">
               <select
-                id="booking-roomtype"
-                value={roomType}
-                onChange={(e) => setRoomType(e.target.value)}
+                id="booking-location"
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
                 className="luxury-input-dark"
               >
-                <option value="Deluxe Suite">Kanchenjunga Deluxe Suite</option>
-                <option value="Family Suite">Heritage Family Suite</option>
-                <option value="Couple Room">Colonial Couple Retreat</option>
-                <option value="All Rooms">Any Available Room</option>
+                <option value="all">All Properties</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.location}
+                  </option>
+                ))}
               </select>
               <span className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#C62828] to-[#C89D45] rounded-full w-0 group-focus-within:w-full transition-all duration-400" />
             </div>

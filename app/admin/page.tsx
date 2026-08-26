@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/utils";
+import { BookingService } from "@/services/booking.service";
+import type { Booking } from "@/types/booking";
 import {
   TrendingUp,
   CalendarCheck,
@@ -16,25 +18,65 @@ import {
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
+  const loadData = async () => {
+    const data = await BookingService.getAllBookings();
+    setBookings(data);
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener("lp_bookings_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("lp_bookings_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const totalRevenue = bookings.reduce((sum, b) => (b.status !== "CANCELLED" ? sum + (b.totalAmount || 0) : sum), 0);
+  const pendingCount = bookings.filter((b) => b.status === "PENDING").length;
+  const confirmedCount = bookings.filter((b) => b.status === "CONFIRMED").length;
+  const totalGuestsCount = bookings.reduce((sum, b) => sum + (b.guestsCount || 1), 0);
+
   const metrics = [
-    { title: "Monthly Revenue", value: formatPrice(384000), change: "+18.4% vs last mo", icon: <TrendingUp className="w-5 h-5 text-emerald-400" /> },
-    { title: "Occupancy Rate", value: "84.2%", change: "+6.1% this week", icon: <BedDouble className="w-5 h-5 text-[#C89D45]" /> },
-    { title: "Pending Bookings", value: "3 Requests", change: "Requires confirmation", icon: <Clock className="w-5 h-5 text-amber-400" /> },
-    { title: "Check-ins Today", value: "2 Guests", change: "Arriving after 1:00 PM", icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" /> },
-    { title: "Upcoming Guests", value: "8 Bookings", change: "Next 7 Days", icon: <CalendarCheck className="w-5 h-5 text-sky-400" /> },
-    { title: "Corporate Leads", value: "2 High Priority", change: "Tech & Consulting offsites", icon: <Building2 className="w-5 h-5 text-[#C62828]" /> },
-    { title: "Customer Enquiries", value: "5 Unread", change: "Latpanchar package info", icon: <Inbox className="w-5 h-5 text-purple-400" /> },
-    { title: "Total Guests Served", value: "142 Families", change: "This Season", icon: <Users className="w-5 h-5 text-amber-300" /> },
+    {
+      title: "Total Booking Revenue",
+      value: formatPrice(totalRevenue),
+      change: `${bookings.length} Total Reservations`,
+      icon: <TrendingUp className="w-5 h-5 text-emerald-400" />,
+    },
+    {
+      title: "Confirmed Stays",
+      value: `${confirmedCount} Bookings`,
+      change: "Active & Guaranteed",
+      icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+    },
+    {
+      title: "Pending Requests",
+      value: `${pendingCount} Requests`,
+      change: pendingCount > 0 ? "Requires confirmation" : "All cleared",
+      icon: <Clock className="w-5 h-5 text-amber-400" />,
+    },
+    {
+      title: "Total Guests Booked",
+      value: `${totalGuestsCount} Guests`,
+      change: "Across all properties",
+      icon: <Users className="w-5 h-5 text-amber-300" />,
+    },
   ];
 
-  const recentBookings = [
-    { id: "LPH-849201", guest: "Anirban Roy", room: "Kanchenjunga Deluxe Suite", dates: "15 Aug - 18 Aug 2026", amount: 14400, status: "CONFIRMED" },
-    { id: "LPH-710294", guest: "Dr. Richard Miller", room: "Heritage Family Suite", dates: "20 Aug - 23 Aug 2026", amount: 19500, status: "PENDING" },
-    { id: "LPH-639102", guest: "Swati Sengupta", room: "Colonial Couple Retreat", dates: "25 Aug - 27 Aug 2026", amount: 7800, status: "CONFIRMED" },
-  ];
+  const recentBookings = bookings.slice(0, 5);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-white">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -77,53 +119,73 @@ export default function AdminDashboardPage() {
       {/* RECENT BOOKINGS TABLE & TIMELINE */}
       <div className="bg-[#2C2473] rounded-3xl p-6 md:p-8 border border-[#C89D45]/30 shadow-2xl space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="font-serif text-2xl font-bold text-white">
-            Recent Reservation Activity
-          </h3>
+          <div>
+            <h3 className="font-serif text-2xl font-bold text-white">
+              Recent Reservation Activity
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Live synchronized bookings across all Lotus Paradise properties
+            </p>
+          </div>
           <Link
             href="/admin/bookings"
             className="text-xs font-accent uppercase text-[#C89D45] hover:text-white font-bold flex items-center gap-1"
           >
-            <span>View All</span>
+            <span>View All ({bookings.length})</span>
             <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-sans">
-            <thead>
-              <tr className="border-b border-white/10 text-gray-400 font-accent uppercase text-[10px]">
-                <th className="pb-3">Booking ID</th>
-                <th className="pb-3">Guest Name</th>
-                <th className="pb-3">Suite Reserved</th>
-                <th className="pb-3">Stay Dates</th>
-                <th className="pb-3">Total Amount</th>
-                <th className="pb-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10 text-gray-200">
-              {recentBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-white/5 transition-colors">
-                  <td className="py-3.5 font-mono font-bold text-[#C89D45]">{b.id}</td>
-                  <td className="py-3.5 font-semibold text-white">{b.guest}</td>
-                  <td className="py-3.5">{b.room}</td>
-                  <td className="py-3.5">{b.dates}</td>
-                  <td className="py-3.5 font-bold">{formatPrice(b.amount)}</td>
-                  <td className="py-3.5">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-accent font-bold uppercase ${
-                        b.status === "CONFIRMED"
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                          : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                      }`}
-                    >
-                      {b.status}
-                    </span>
-                  </td>
+          {recentBookings.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <p className="font-serif text-lg">No reservations recorded yet.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs font-sans">
+              <thead>
+                <tr className="border-b border-white/10 text-gray-400 font-accent uppercase text-[10px]">
+                  <th className="pb-3">Booking ID</th>
+                  <th className="pb-3">Guest Name</th>
+                  <th className="pb-3">Contact</th>
+                  <th className="pb-3">Room Reserved</th>
+                  <th className="pb-3">Stay Dates</th>
+                  <th className="pb-3">Total Amount</th>
+                  <th className="pb-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/10 text-gray-200">
+                {recentBookings.map((b) => (
+                  <tr key={b.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 font-mono font-bold text-[#C89D45]">{b.bookingNumber}</td>
+                    <td className="py-3.5 font-semibold text-white">{b.guestName}</td>
+                    <td className="py-3.5 text-gray-300">
+                      <div>{b.phone}</div>
+                      <div className="text-[10px] text-gray-500">{b.email}</div>
+                    </td>
+                    <td className="py-3.5">{b.roomTitle}</td>
+                    <td className="py-3.5 font-mono text-[11px]">
+                      {b.checkIn} → {b.checkOut} ({b.nights}n)
+                    </td>
+                    <td className="py-3.5 font-bold text-[#F3D27A]">{formatPrice(b.totalAmount)}</td>
+                    <td className="py-3.5">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-accent font-bold uppercase ${
+                          b.status === "CONFIRMED"
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                            : b.status === "PENDING"
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            : "bg-red-500/20 text-red-300 border border-red-500/40"
+                        }`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

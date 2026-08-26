@@ -1,106 +1,38 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 
 export default function PageLoader() {
   const [visible, setVisible] = useState(true);
-  const loaderRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLParagraphElement>(null);
-  const mountainRef = useRef<SVGSVGElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
+  const [fading, setFading] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
 
-    const animate = async () => {
-      const { gsap } = await import("gsap");
+    const fadeTimer = setTimeout(() => {
+      setFading(true);
+    }, 1200);
 
-      // Set initial states
-      gsap.set(cardRef.current, { opacity: 0, y: 40, scale: 0.94 });
-      gsap.set(logoRef.current, { opacity: 0, y: -24 });
-      gsap.set(textRef.current, { opacity: 0, y: 12 });
-      gsap.set(mountainRef.current, { opacity: 0, y: 30 });
-      gsap.set(progressRef.current, { scaleX: 0, transformOrigin: "left center" });
-
-      const tl = gsap.timeline({
-        onComplete: () => {
-          gsap.to(loaderRef.current, {
-            opacity: 0,
-            duration: 0.9,
-            ease: "power2.inOut",
-            onComplete: () => {
-              setVisible(false);
-              document.body.style.overflow = "";
-            },
-          });
-        },
-      });
-
-      // 1. Glass card rises in
-      tl.to(cardRef.current, {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.9,
-        ease: "power3.out",
-      });
-
-      // 2. Logo drops in inside card
-      tl.to(logoRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.7,
-        ease: "back.out(1.6)",
-      }, "-=0.5");
-
-      // 3. Subtitle fades up
-      tl.to(textRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.55,
-        ease: "power2.out",
-      }, "-=0.35");
-
-      // 4. Mountain silhouette rises
-      tl.to(mountainRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.7,
-        ease: "power3.out",
-      }, "-=0.3");
-
-      // 5. Progress bar sweeps
-      tl.to(progressRef.current, {
-        scaleX: 1,
-        duration: 1.4,
-        ease: "power1.inOut",
-      }, "-=0.4");
-
-      // 6. Pause then exit
-      tl.to({}, { duration: 0.3 });
-    };
-
-    animate();
-
-    const fallback = setTimeout(() => {
+    const removeTimer = setTimeout(() => {
       setVisible(false);
       document.body.style.overflow = "";
-    }, 5000);
+    }, 1800);
 
-    return () => clearTimeout(fallback);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+      document.body.style.overflow = "";
+    };
   }, []);
 
   if (!visible) return null;
 
   return (
     <div
-      ref={loaderRef}
       id="page-loader"
       role="status"
-      aria-label="Loading Lotus Paradise"
+      aria-label="Loading The Cometas"
       style={{
         position: "fixed",
         inset: 0,
@@ -108,6 +40,9 @@ export default function PageLoader() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        opacity: fading ? 0 : 1,
+        transition: "opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+        pointerEvents: fading ? "none" : "auto",
       }}
     >
       {/* BACKGROUND — hotel night photo */}
@@ -153,7 +88,6 @@ export default function PageLoader() {
 
       {/* GLASSMORPHIC CARD */}
       <div
-        ref={cardRef}
         style={{
           position: "relative",
           zIndex: 10,
@@ -190,32 +124,42 @@ export default function PageLoader() {
         />
 
         {/* LOGO */}
-        <div ref={logoRef} style={{ opacity: 0 }}>
-          <div style={{ position: "relative", width: "240px", height: "62px" }}>
-            <Image
-              src="/LotusParadise.png"
-              alt="Lotus Paradise Homestay"
-              fill
-              priority
-              className="object-contain"
-              style={{
-                filter:
-                  "drop-shadow(0 2px 16px rgba(200,157,69,0.5)) brightness(1.15)",
-              }}
-            />
+        <div>
+          <div
+            style={{
+              position: "relative",
+              width: "220px",
+              height: "92px",
+              background: "rgba(255, 255, 255, 0.95)",
+              borderRadius: "18px",
+              padding: "10px 16px",
+              border: "1px solid rgba(200, 157, 69, 0.4)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <Image
+                src="/The Cometas Logo.png"
+                alt="The Cometas — Luxury Himalayan Homestay"
+                fill
+                priority
+                className="object-contain"
+              />
+            </div>
           </div>
         </div>
 
         {/* SUBTITLE */}
         <p
-          ref={textRef}
           style={{
             fontFamily: "Manrope, sans-serif",
             fontSize: "10.5px",
             textTransform: "uppercase",
             letterSpacing: "0.32em",
             color: "rgba(200,157,69,0.9)",
-            opacity: 0,
             textAlign: "center",
             lineHeight: 1.8,
           }}
@@ -229,9 +173,8 @@ export default function PageLoader() {
 
         {/* MOUNTAIN SVG DIVIDER */}
         <svg
-          ref={mountainRef}
           viewBox="0 0 400 48"
-          style={{ width: "100%", maxWidth: "320px", opacity: 0 }}
+          style={{ width: "100%", maxWidth: "320px" }}
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
@@ -254,21 +197,20 @@ export default function PageLoader() {
         <div
           style={{
             width: "200px",
-            height: "1.5px",
+            height: "2px",
             background: "rgba(200,157,69,0.18)",
             borderRadius: "2px",
             overflow: "hidden",
           }}
         >
           <div
-            ref={progressRef}
+            className="animate-pulse"
             style={{
               height: "100%",
+              width: "100%",
               background:
                 "linear-gradient(90deg, #C62828, #C89D45, #F3D27A, #C89D45)",
               borderRadius: "2px",
-              transform: "scaleX(0)",
-              transformOrigin: "left center",
             }}
           />
         </div>

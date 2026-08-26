@@ -11,6 +11,7 @@ let inMemoryRooms: Room[] = ROOMS.map((r) => ({
   bedType: r.bedType,
   view: r.view,
   size: r.size,
+  location: r.location,
   description: r.description,
   amenities: r.amenities,
   images: r.images.map((imgUrl, i) => ({
