@@ -10,6 +10,7 @@ import ImageDropbox from "@/components/image-dropbox";
 export default function AdminHeroSlidesPage() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [editingSlide, setEditingSlide] = useState<HeroSlide | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadSlides();
@@ -37,17 +38,24 @@ export default function AdminHeroSlidesPage() {
     await loadSlides();
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!editingSlide) return;
-    const exists = slides.some((s) => s.id === editingSlide.id);
-    if (exists) {
-      await HeroService.updateSlide(editingSlide.id, editingSlide);
-    } else {
-      await HeroService.createSlide(editingSlide);
+    try {
+      setSaving(true);
+      const exists = slides.some((s) => s.id === editingSlide.id);
+      if (exists) {
+        await HeroService.updateSlide(editingSlide.id, editingSlide);
+      } else {
+        await HeroService.createSlide(editingSlide);
+      }
+      setEditingSlide(null);
+      await loadSlides();
+    } catch (err) {
+      console.error("Error saving hero slide:", err);
+    } finally {
+      setSaving(false);
     }
-    setEditingSlide(null);
-    await loadSlides();
   };
 
   const handleDelete = async (id: string) => {
@@ -179,7 +187,8 @@ export default function AdminHeroSlidesPage() {
             if (e.target === e.currentTarget) setEditingSlide(null);
           }}
         >
-          <div 
+          <form 
+            onSubmit={handleSave}
             className="relative w-full max-w-lg bg-[#2C2473] rounded-3xl border border-[#C89D45] shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -203,11 +212,7 @@ export default function AdminHeroSlidesPage() {
             </div>
 
             {/* Scrollable Body */}
-            <form
-              id="hero-slide-form"
-              onSubmit={handleSave}
-              className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 custom-scrollbar overscroll-contain"
-            >
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 custom-scrollbar overscroll-contain">
               <div>
                 <label className="text-[10px] font-accent uppercase text-[#C89D45] font-bold block mb-1">
                   Main Headline Title *
@@ -416,7 +421,7 @@ export default function AdminHeroSlidesPage() {
                   </p>
                 </div>
               </div>
-            </form>
+            </div>
 
             {/* Footer */}
             <div className="p-4 sm:p-5 border-t border-white/10 flex justify-end gap-3 shrink-0 bg-[#241d61]">
@@ -430,14 +435,14 @@ export default function AdminHeroSlidesPage() {
 
               <button
                 type="submit"
-                form="hero-slide-form"
-                className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg hover:shadow-red-900/40"
+                disabled={saving}
+                className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg hover:shadow-red-900/40 disabled:opacity-50"
               >
-                <Save className="w-4 h-4 text-[#C89D45]" />
-                <span>Save Slide</span>
+                <Save className={`w-4 h-4 text-[#C89D45] ${saving ? "animate-spin" : ""}`} />
+                <span>{saving ? "Saving Slide..." : "Save Slide"}</span>
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>

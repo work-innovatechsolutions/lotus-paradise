@@ -37,7 +37,12 @@ function getCachedSlides(): HeroSlide[] {
     const raw = IdbStorage.safeLocalGet(HERO_SLIDES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((s) => ({
+          ...s,
+          overlayOpacity: typeof s.overlayOpacity === "number" ? s.overlayOpacity : 0.5,
+        }));
+      }
     }
   } catch (err) {
     console.warn("Cached slides error:", err);
@@ -58,13 +63,21 @@ function updateCache(slides: HeroSlide[]) {
 
 export const HeroService = {
   async getAllSlides(): Promise<HeroSlide[]> {
-    try {
-      const colRef = collection(db, "hero_slides");
-      const q = query(colRef, orderBy("displayOrder", "asc"));
-      const snapshot = await getDocs(q);
+    // 1. Return cached slides immediately for instant UI
+    const cached = getCachedSlides();
 
-      if (!snapshot.empty) {
-        const firestoreSlides = snapshot.docs.map((docSnap) => {
+    // 2. Fetch from Firestore in background if available
+    try {
+      const colRef = collection(db, "heroSlides");
+      const fetchPromise = getDocs(query(colRef, orderBy("displayOrder", "asc")));
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+      );
+
+      const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+
+      if (snapshot && !snapshot.empty) {
+        const firestoreSlides = snapshot.docs.map((docSnap: any) => {
           const data = docSnap.data();
           return {
             id: docSnap.id,
@@ -87,18 +100,11 @@ export const HeroService = {
         updateCache(firestoreSlides);
         return firestoreSlides;
       }
-
-      // If Firestore is empty, seed it with default slides
-      const seededSlides = [...DEFAULT_SLIDES];
-      for (const slide of seededSlides) {
-        await setDoc(doc(db, "hero_slides", slide.id), slide);
-      }
-      updateCache(seededSlides);
-      return seededSlides;
     } catch (err) {
-      console.warn("Firestore fetch error, falling back to cache:", err);
-      return getCachedSlides();
+      console.warn("Firestore fetch error, using local cache:", err);
     }
+
+    return cached;
   },
 
   async getActiveSlides(): Promise<HeroSlide[]> {
@@ -115,21 +121,29 @@ export const HeroService = {
       ...target,
       ...updated,
       id,
-      overlayOpacity: typeof updated.overlayOpacity === "number" ? updated.overlayOpacity : target.overlayOpacity ?? 0.5,
+      overlayOpacity:
+        typeof updated.overlayOpacity === "number"
+          ? updated.overlayOpacity
+          : target.overlayOpacity ?? 0.5,
     };
 
-    // Update Firestore
-    try {
-      await setDoc(doc(db, "hero_slides", id), updatedSlide, { merge: true });
-    } catch (err) {
-      console.error("Firestore updateSlide error:", err);
-    }
-
-    // Update local cache & notify UI
+    // 1. Immediately update local storage and notify UI
     const nextSlides = cached.some((s) => s.id === id)
       ? cached.map((s) => (s.id === id ? updatedSlide : s))
       : [...cached, updatedSlide];
     updateCache(nextSlides);
+
+    // 2. Asynchronously sync to Firestore without blocking the client
+    (async () => {
+      try {
+        await Promise.race([
+          setDoc(doc(db, "heroSlides", id), updatedSlide, { merge: true }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000)),
+        ]);
+      } catch (err) {
+        console.warn("Firestore updateSlide sync:", err);
+      }
+    })();
 
     return updatedSlide;
   },
@@ -139,35 +153,46 @@ export const HeroService = {
     const newSlide: HeroSlide = {
       ...slide,
       id: newId,
-      overlayOpacity: typeof slide.overlayOpacity === "number" ? slide.overlayOpacity : 0.5,
+      overlayOpacity:
+        typeof slide.overlayOpacity === "number" ? slide.overlayOpacity : 0.5,
     };
 
-    // Save to Firestore
-    try {
-      await setDoc(doc(db, "hero_slides", newId), newSlide);
-    } catch (err) {
-      console.error("Firestore createSlide error:", err);
-    }
-
-    // Update local cache
+    // 1. Immediately update local cache and dispatch event
     const cached = getCachedSlides();
     const nextSlides = [...cached, newSlide];
     updateCache(nextSlides);
+
+    // 2. Asynchronously sync to Firestore
+    (async () => {
+      try {
+        await Promise.race([
+          setDoc(doc(db, "heroSlides", newId), newSlide),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000)),
+        ]);
+      } catch (err) {
+        console.warn("Firestore createSlide sync:", err);
+      }
+    })();
 
     return newSlide;
   },
 
   async deleteSlide(id: string): Promise<void> {
-    // Delete from Firestore
-    try {
-      await deleteDoc(doc(db, "hero_slides", id));
-    } catch (err) {
-      console.error("Firestore deleteSlide error:", err);
-    }
-
-    // Delete from local cache
+    // 1. Immediately delete from local cache and dispatch event
     const cached = getCachedSlides();
     const filtered = cached.filter((s) => s.id !== id);
     updateCache(filtered);
+
+    // 2. Asynchronously delete from Firestore
+    (async () => {
+      try {
+        await Promise.race([
+          deleteDoc(doc(db, "heroSlides", id)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000)),
+        ]);
+      } catch (err) {
+        console.warn("Firestore deleteSlide sync:", err);
+      }
+    })();
   },
 };
