@@ -14,9 +14,11 @@ const EXPERIENCES_STORAGE_KEY = "lp_experiences_v1";
 
 const DEFAULT_EXPERIENCES: ExperienceData[] = [...EXPERIENCES];
 
-function getCachedExperiences(): ExperienceData[] {
+async function getStoredExperiences(): Promise<ExperienceData[]> {
   if (typeof window === "undefined") return DEFAULT_EXPERIENCES;
   try {
+    const idbData = await IdbStorage.get<ExperienceData[]>(EXPERIENCES_STORAGE_KEY);
+    if (Array.isArray(idbData) && idbData.length > 0) return idbData;
     const raw = IdbStorage.safeLocalGet(EXPERIENCES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -26,9 +28,10 @@ function getCachedExperiences(): ExperienceData[] {
   return DEFAULT_EXPERIENCES;
 }
 
-function updateCache(items: ExperienceData[]) {
+async function updateCache(items: ExperienceData[]) {
   if (typeof window === "undefined") return;
   try {
+    await IdbStorage.set(EXPERIENCES_STORAGE_KEY, items);
     IdbStorage.safeLocalSet(EXPERIENCES_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new Event("lp_experiences_updated"));
   } catch {}
@@ -36,30 +39,40 @@ function updateCache(items: ExperienceData[]) {
 
 export const ExperienceService = {
   async getAllExperiences(): Promise<ExperienceData[]> {
-    const cached = getCachedExperiences();
+    const localData = await getStoredExperiences();
 
     try {
       const colRef = collection(db, "experiences");
       const fetchPromise = getDocs(colRef);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
       );
 
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
       if (snapshot && !snapshot.empty) {
-        const firestoreData = snapshot.docs.map((docSnap: any) => ({
+        const firestoreData: ExperienceData[] = snapshot.docs.map((docSnap: any) => ({
           id: docSnap.id,
           ...docSnap.data(),
-        })) as ExperienceData[];
+        }));
 
-        updateCache(firestoreData);
-        return firestoreData;
+        const firestoreIds = new Set(firestoreData.map((e) => e.id));
+        const localOnly = localData.filter((e) => !firestoreIds.has(e.id));
+        const merged = [...firestoreData, ...localOnly];
+
+        await updateCache(merged);
+        return merged;
+      } else if (snapshot && snapshot.empty) {
+        for (const exp of DEFAULT_EXPERIENCES) {
+          await setDoc(doc(db, "experiences", exp.id), exp);
+        }
+        await updateCache(DEFAULT_EXPERIENCES);
+        return DEFAULT_EXPERIENCES;
       }
     } catch (err) {
-      console.warn("Firestore experiences fetch error:", err);
+      console.warn("Firestore experiences fetch fallback:", err);
     }
 
-    return cached;
+    return localData;
   },
 
   async getFeaturedExperiences(): Promise<ExperienceData[]> {
@@ -68,41 +81,37 @@ export const ExperienceService = {
   },
 
   async toggleFeatured(id: string): Promise<ExperienceData> {
-    const cached = getCachedExperiences();
-    const target = cached.find((e) => e.id === id);
+    const currentList = await getStoredExperiences();
+    const target = currentList.find((e) => e.id === id);
     if (!target) throw new Error("Experience not found");
 
     const updated = { ...target, featured: !target.featured };
-    const nextList = cached.map((e) => (e.id === id ? updated : e));
-    updateCache(nextList);
+    const nextList = currentList.map((e) => (e.id === id ? updated : e));
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "experiences", id), { featured: updated.featured }, { merge: true });
-      } catch (err) {
-        console.warn("Firestore toggleFeatured sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "experiences", id), { featured: updated.featured }, { merge: true });
+    } catch (err) {
+      console.warn("Firestore toggleFeatured sync:", err);
+    }
 
     return updated;
   },
 
   async updateExperience(id: string, data: Partial<ExperienceData>): Promise<ExperienceData> {
-    const cached = getCachedExperiences();
-    const target = cached.find((e) => e.id === id);
+    const currentList = await getStoredExperiences();
+    const target = currentList.find((e) => e.id === id);
     if (!target) throw new Error("Experience not found");
 
     const updated = { ...target, ...data };
-    const nextList = cached.map((e) => (e.id === id ? updated : e));
-    updateCache(nextList);
+    const nextList = currentList.map((e) => (e.id === id ? updated : e));
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "experiences", id), updated, { merge: true });
-      } catch (err) {
-        console.warn("Firestore updateExperience sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "experiences", id), updated, { merge: true });
+    } catch (err) {
+      console.warn("Firestore updateExperience sync:", err);
+    }
 
     return updated;
   },
@@ -115,32 +124,28 @@ export const ExperienceService = {
       slug: data.slug || data.title.toLowerCase().replace(/\s+/g, "-"),
     };
 
-    const cached = getCachedExperiences();
-    const nextList = [...cached, newExp];
-    updateCache(nextList);
+    const currentList = await getStoredExperiences();
+    const nextList = [...currentList, newExp];
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "experiences", newId), newExp);
-      } catch (err) {
-        console.warn("Firestore createExperience sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "experiences", newId), newExp);
+    } catch (err) {
+      console.warn("Firestore createExperience sync:", err);
+    }
 
     return newExp;
   },
 
   async deleteExperience(id: string): Promise<void> {
-    const cached = getCachedExperiences();
-    const nextList = cached.filter((e) => e.id !== id);
-    updateCache(nextList);
+    const currentList = await getStoredExperiences();
+    const nextList = currentList.filter((e) => e.id !== id);
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await deleteDoc(doc(db, "experiences", id));
-      } catch (err) {
-        console.warn("Firestore deleteExperience sync:", err);
-      }
-    })();
+    try {
+      await deleteDoc(doc(db, "experiences", id));
+    } catch (err) {
+      console.warn("Firestore deleteExperience sync:", err);
+    }
   },
 };

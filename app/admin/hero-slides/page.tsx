@@ -112,10 +112,11 @@ export default function AdminHeroSlidesPage() {
             <div className="space-y-3">
               <div className="relative h-48 rounded-2xl overflow-hidden border border-[#C89D45]/30">
                 <Image
-                  src={slide.desktopImage}
-                  alt={slide.title}
+                  src={slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg"}
+                  alt={slide.title || "Hero banner"}
                   fill
                   className="object-cover"
+                  unoptimized={slide.desktopImage?.startsWith("data:") || slide.desktopImage?.startsWith("blob:")}
                 />
                 <div
                   className="absolute inset-0 bg-black"
@@ -355,6 +356,7 @@ export default function AdminHeroSlidesPage() {
                       alt="Overlay Preview"
                       fill
                       className="object-cover"
+                      unoptimized={editingSlide.desktopImage?.startsWith("data:") || editingSlide.desktopImage?.startsWith("blob:")}
                     />
                   )}
                   <div

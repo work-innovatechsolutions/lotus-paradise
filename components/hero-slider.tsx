@@ -247,10 +247,11 @@ export default function HeroSlider() {
         }}
       >
         <Image
-          src={activeSlide.desktopImage}
-          alt={activeSlide.title}
+          src={activeSlide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg"}
+          alt={activeSlide.title || "Hero banner"}
           fill
           priority
+          unoptimized={activeSlide.desktopImage?.startsWith("data:") || activeSlide.desktopImage?.startsWith("blob:")}
           className="hero-bg-image object-cover object-center transition-transform duration-300"
           style={{ transform: "scale(1.08)" }}
         />

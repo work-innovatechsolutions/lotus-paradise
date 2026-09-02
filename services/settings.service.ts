@@ -35,9 +35,11 @@ const DEFAULT_SECTIONS: HomepageSectionConfig[] = [
   { id: "faq", name: "Frequently Asked Questions Accordion", enabled: true, order: 14 },
 ];
 
-function getCachedSettings(): SiteGeneralSettings {
+async function getStoredSettings(): Promise<SiteGeneralSettings> {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
+    const idb = await IdbStorage.get<SiteGeneralSettings>(SETTINGS_KEY);
+    if (idb && typeof idb === "object") return idb;
     const raw = IdbStorage.safeLocalGet(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -47,9 +49,11 @@ function getCachedSettings(): SiteGeneralSettings {
   return DEFAULT_SETTINGS;
 }
 
-function getCachedSections(): HomepageSectionConfig[] {
+async function getStoredSections(): Promise<HomepageSectionConfig[]> {
   if (typeof window === "undefined") return DEFAULT_SECTIONS;
   try {
+    const idb = await IdbStorage.get<HomepageSectionConfig[]>(SECTIONS_KEY);
+    if (Array.isArray(idb) && idb.length > 0) return idb;
     const raw = IdbStorage.safeLocalGet(SECTIONS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -61,95 +65,99 @@ function getCachedSections(): HomepageSectionConfig[] {
 
 export const SettingsService = {
   async getGeneralSettings(): Promise<SiteGeneralSettings> {
-    const cached = getCachedSettings();
+    const localSettings = await getStoredSettings();
 
     try {
       const docRef = doc(db, "siteSettings", "general");
       const fetchPromise = getDoc(docRef);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
       );
 
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
       if (snapshot && snapshot.exists()) {
         const firestoreData = snapshot.data() as SiteGeneralSettings;
         if (typeof window !== "undefined") {
+          await IdbStorage.set(SETTINGS_KEY, firestoreData);
           IdbStorage.safeLocalSet(SETTINGS_KEY, JSON.stringify(firestoreData));
           window.dispatchEvent(new Event("lp_settings_updated"));
         }
         return firestoreData;
+      } else if (snapshot && !snapshot.exists()) {
+        await setDoc(doc(db, "siteSettings", "general"), DEFAULT_SETTINGS);
+        return DEFAULT_SETTINGS;
       }
     } catch (err) {
-      console.warn("Firestore siteSettings fetch warning:", err);
+      console.warn("Firestore siteSettings fetch fallback:", err);
     }
 
-    return cached;
+    return localSettings;
   },
 
   async updateGeneralSettings(updated: Partial<SiteGeneralSettings>): Promise<SiteGeneralSettings> {
-    const cached = getCachedSettings();
-    const nextSettings = { ...cached, ...updated, updatedAt: new Date().toISOString() };
+    const current = await getStoredSettings();
+    const nextSettings = { ...current, ...updated, updatedAt: new Date().toISOString() };
 
     if (typeof window !== "undefined") {
+      await IdbStorage.set(SETTINGS_KEY, nextSettings);
       IdbStorage.safeLocalSet(SETTINGS_KEY, JSON.stringify(nextSettings));
       window.dispatchEvent(new Event("lp_settings_updated"));
     }
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "siteSettings", "general"), nextSettings, { merge: true });
-      } catch (err) {
-        console.warn("Firestore updateGeneralSettings sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "siteSettings", "general"), nextSettings, { merge: true });
+    } catch (err) {
+      console.warn("Firestore updateGeneralSettings sync:", err);
+    }
 
     return nextSettings;
   },
 
   async getHomepageSections(): Promise<HomepageSectionConfig[]> {
-    const cached = getCachedSections();
+    const localSections = await getStoredSections();
 
     try {
       const docRef = doc(db, "homepageSections", "config");
       const fetchPromise = getDoc(docRef);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
       );
 
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
       if (snapshot && snapshot.exists()) {
         const data = snapshot.data();
-        if (Array.isArray(data.sections) && data.sections.length > 0) {
+        if (data && Array.isArray(data.sections)) {
           if (typeof window !== "undefined") {
+            await IdbStorage.set(SECTIONS_KEY, data.sections);
             IdbStorage.safeLocalSet(SECTIONS_KEY, JSON.stringify(data.sections));
             window.dispatchEvent(new Event("lp_sections_updated"));
           }
-          return data.sections.sort((a: HomepageSectionConfig, b: HomepageSectionConfig) => a.order - b.order);
+          return data.sections as HomepageSectionConfig[];
         }
+      } else if (snapshot && !snapshot.exists()) {
+        await setDoc(doc(db, "homepageSections", "config"), { sections: DEFAULT_SECTIONS });
+        return DEFAULT_SECTIONS;
       }
     } catch (err) {
-      console.warn("Firestore homepageSections fetch warning:", err);
+      console.warn("Firestore homepageSections fetch fallback:", err);
     }
 
-    return [...cached].sort((a, b) => a.order - b.order);
+    return localSections;
   },
 
   async updateHomepageSections(sections: HomepageSectionConfig[]): Promise<HomepageSectionConfig[]> {
-    const sorted = [...sections].sort((a, b) => a.order - b.order);
-
     if (typeof window !== "undefined") {
-      IdbStorage.safeLocalSet(SECTIONS_KEY, JSON.stringify(sorted));
+      await IdbStorage.set(SECTIONS_KEY, sections);
+      IdbStorage.safeLocalSet(SECTIONS_KEY, JSON.stringify(sections));
       window.dispatchEvent(new Event("lp_sections_updated"));
     }
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "homepageSections", "config"), { sections: sorted }, { merge: true });
-      } catch (err) {
-        console.warn("Firestore updateHomepageSections sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "homepageSections", "config"), { sections }, { merge: true });
+    } catch (err) {
+      console.warn("Firestore updateHomepageSections sync:", err);
+    }
 
-    return sorted;
+    return sections;
   },
 };

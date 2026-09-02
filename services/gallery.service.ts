@@ -7,7 +7,6 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  query,
 } from "firebase/firestore";
 import { IdbStorage } from "@/lib/idb-storage";
 
@@ -28,26 +27,24 @@ const DEFAULT_GALLERY: GalleryItem[] = GALLERY_ITEMS.map((g) => ({
   uploadedAt: new Date().toISOString(),
 }));
 
-function getCachedGallery(): GalleryItem[] {
+async function getStoredGallery(): Promise<GalleryItem[]> {
   if (typeof window === "undefined") return DEFAULT_GALLERY;
   try {
+    const idbData = await IdbStorage.get<GalleryItem[]>(GALLERY_STORAGE_KEY);
+    if (Array.isArray(idbData) && idbData.length > 0) return idbData;
     const raw = IdbStorage.safeLocalGet(GALLERY_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch (err) {
-    console.warn("Cached gallery error:", err);
-  }
+  } catch {}
   return DEFAULT_GALLERY;
 }
 
-function updateCache(items: GalleryItem[]) {
+async function updateCache(items: GalleryItem[]) {
   if (typeof window === "undefined") return;
   try {
-    IdbStorage.set(GALLERY_STORAGE_KEY, items);
+    await IdbStorage.set(GALLERY_STORAGE_KEY, items);
     IdbStorage.safeLocalSet(GALLERY_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new Event("lp_gallery_updated"));
   } catch (err) {
@@ -57,31 +54,41 @@ function updateCache(items: GalleryItem[]) {
 
 export const GalleryService = {
   async getAllItems(): Promise<GalleryItem[]> {
-    const cached = getCachedGallery();
+    const localItems = await getStoredGallery();
 
     try {
       const colRef = collection(db, "gallery");
       const fetchPromise = getDocs(colRef);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
       );
 
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
 
       if (snapshot && !snapshot.empty) {
-        const firestoreItems = snapshot.docs.map((docSnap: any) => ({
+        const firestoreItems: GalleryItem[] = snapshot.docs.map((docSnap: any) => ({
           id: docSnap.id,
           ...docSnap.data(),
-        })) as GalleryItem[];
+        }));
 
-        updateCache(firestoreItems);
-        return firestoreItems;
+        const firestoreIds = new Set(firestoreItems.map((g) => g.id));
+        const localOnly = localItems.filter((g) => !firestoreIds.has(g.id));
+        const merged = [...firestoreItems, ...localOnly];
+
+        await updateCache(merged);
+        return merged;
+      } else if (snapshot && snapshot.empty) {
+        for (const item of DEFAULT_GALLERY) {
+          await setDoc(doc(db, "gallery", item.id), item);
+        }
+        await updateCache(DEFAULT_GALLERY);
+        return DEFAULT_GALLERY;
       }
     } catch (err) {
-      console.warn("Firestore gallery fetch error, using local cache:", err);
+      console.warn("Firestore gallery fetch fallback:", err);
     }
 
-    return cached;
+    return localItems;
   },
 
   async getItemsByCategory(category: string): Promise<GalleryItem[]> {
@@ -91,20 +98,18 @@ export const GalleryService = {
   },
 
   async updateItem(id: string, updated: Partial<GalleryItem>): Promise<GalleryItem> {
-    const cached = getCachedGallery();
-    const target = cached.find((g) => g.id === id) || ({} as GalleryItem);
+    const currentList = await getStoredGallery();
+    const target = currentList.find((g) => g.id === id) || ({} as GalleryItem);
     const updatedItem: GalleryItem = { ...target, ...updated, id };
 
-    const nextItems = cached.map((g) => (g.id === id ? updatedItem : g));
-    updateCache(nextItems);
+    const nextItems = currentList.map((g) => (g.id === id ? updatedItem : g));
+    await updateCache(nextItems);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "gallery", id), updatedItem, { merge: true });
-      } catch (err) {
-        console.warn("Firestore updateItem sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "gallery", id), updatedItem, { merge: true });
+    } catch (err) {
+      console.warn("Firestore updateItem sync:", err);
+    }
 
     return updatedItem;
   },
@@ -118,17 +123,15 @@ export const GalleryService = {
   },
 
   async deleteItem(id: string): Promise<void> {
-    const cached = getCachedGallery();
-    const filtered = cached.filter((g) => g.id !== id);
-    updateCache(filtered);
+    const currentList = await getStoredGallery();
+    const filtered = currentList.filter((g) => g.id !== id);
+    await updateCache(filtered);
 
-    (async () => {
-      try {
-        await deleteDoc(doc(db, "gallery", id));
-      } catch (err) {
-        console.warn("Firestore deleteItem sync:", err);
-      }
-    })();
+    try {
+      await deleteDoc(doc(db, "gallery", id));
+    } catch (err) {
+      console.warn("Firestore deleteItem sync:", err);
+    }
   },
 
   async createItem(item: Omit<GalleryItem, "id" | "uploadedAt">): Promise<GalleryItem> {
@@ -139,17 +142,15 @@ export const GalleryService = {
       uploadedAt: new Date().toISOString(),
     };
 
-    const cached = getCachedGallery();
-    const nextItems = [newItem, ...cached];
-    updateCache(nextItems);
+    const currentList = await getStoredGallery();
+    const nextItems = [newItem, ...currentList];
+    await updateCache(nextItems);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "gallery", newId), newItem);
-      } catch (err) {
-        console.warn("Firestore createItem sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "gallery", newId), newItem);
+    } catch (err) {
+      console.warn("Firestore createItem sync:", err);
+    }
 
     return newItem;
   },

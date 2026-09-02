@@ -77,8 +77,8 @@ export const IdbStorage = {
     try {
       localStorage.setItem(key, value);
       return true;
-    } catch (e) {
-      console.warn(`localStorage.setItem exceeded for key: ${key}. Data is safely backed by IndexedDB.`, e);
+    } catch {
+      // Safely handled by IndexedDB fallback
       return false;
     }
   },

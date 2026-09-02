@@ -42,6 +42,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [enteredPin, setEnteredPin] = useState("");
   const [pinError, setPinError] = useState("");
 
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
   useEffect(() => {
     loadNotifications();
 
@@ -58,11 +60,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.addEventListener("storage", handleUpdate);
     window.addEventListener("storage", handleLocksUpdate);
 
+    let unsubscribeAuth = () => {};
+    import("@/lib/firebase").then(({ auth }) => {
+      import("firebase/auth").then(({ onAuthStateChanged }) => {
+        unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+          if (user?.email) {
+            setCurrentUserEmail(user.email);
+          }
+        });
+      });
+    });
+
     return () => {
       window.removeEventListener("lp_notifications_updated", handleUpdate);
       window.removeEventListener("lp_admin_locks_updated", handleLocksUpdate);
       window.removeEventListener("storage", handleUpdate);
       window.removeEventListener("storage", handleLocksUpdate);
+      unsubscribeAuth();
     };
   }, []);
 
@@ -71,8 +85,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setNotifications(unread);
   };
 
-  const handleLogout = (e: React.MouseEvent) => {
+  const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
+    try {
+      const { auth } = await import("@/lib/firebase");
+      const { signOut } = await import("firebase/auth");
+      await signOut(auth);
+    } catch {}
     document.cookie = "lp_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     router.push("/admin/login");
   };
@@ -176,13 +195,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[#C62828] flex items-center justify-center font-bold text-xs text-white">
-              AD
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-[#C62828] shrink-0 flex items-center justify-center font-bold text-xs text-white">
+              {currentUserEmail ? currentUserEmail.slice(0, 2).toUpperCase() : "AD"}
             </div>
-            <div>
-              <p className="text-xs font-accent font-bold text-white">Homestay Admin</p>
-              <p className="text-[10px] text-gray-400">Super Admin Role</p>
+            <div className="min-w-0">
+              <p className="text-xs font-accent font-bold text-white truncate">
+                {currentUserEmail ? currentUserEmail.split("@")[0] : "Homestay Admin"}
+              </p>
+              <p className="text-[10px] text-gray-400 truncate">
+                {currentUserEmail || "Super Admin"}
+              </p>
             </div>
           </div>
           <button

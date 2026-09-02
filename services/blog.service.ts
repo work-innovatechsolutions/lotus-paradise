@@ -6,8 +6,6 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  query,
-  orderBy,
 } from "firebase/firestore";
 import { IdbStorage } from "@/lib/idb-storage";
 
@@ -15,9 +13,11 @@ const BLOGS_STORAGE_KEY = "lp_blogs_v1";
 
 const DEFAULT_BLOGS: BlogArticle[] = [...BLOG_POSTS];
 
-function getCachedBlogs(): BlogArticle[] {
+async function getStoredBlogs(): Promise<BlogArticle[]> {
   if (typeof window === "undefined") return DEFAULT_BLOGS;
   try {
+    const idbData = await IdbStorage.get<BlogArticle[]>(BLOGS_STORAGE_KEY);
+    if (Array.isArray(idbData) && idbData.length > 0) return idbData;
     const raw = IdbStorage.safeLocalGet(BLOGS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -27,9 +27,10 @@ function getCachedBlogs(): BlogArticle[] {
   return DEFAULT_BLOGS;
 }
 
-function updateCache(items: BlogArticle[]) {
+async function updateCache(items: BlogArticle[]) {
   if (typeof window === "undefined") return;
   try {
+    await IdbStorage.set(BLOGS_STORAGE_KEY, items);
     IdbStorage.safeLocalSet(BLOGS_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new Event("lp_blogs_updated"));
   } catch {}
@@ -37,30 +38,40 @@ function updateCache(items: BlogArticle[]) {
 
 export const BlogService = {
   async getAllBlogs(): Promise<BlogArticle[]> {
-    const cached = getCachedBlogs();
+    const localData = await getStoredBlogs();
 
     try {
       const colRef = collection(db, "blogs");
       const fetchPromise = getDocs(colRef);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
       );
 
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
       if (snapshot && !snapshot.empty) {
-        const firestoreData = snapshot.docs.map((docSnap: any) => ({
+        const firestoreData: BlogArticle[] = snapshot.docs.map((docSnap: any) => ({
           id: docSnap.id,
           ...docSnap.data(),
-        })) as BlogArticle[];
+        }));
 
-        updateCache(firestoreData);
-        return firestoreData;
+        const firestoreIds = new Set(firestoreData.map((b) => b.id));
+        const localOnly = localData.filter((b) => !firestoreIds.has(b.id));
+        const merged = [...firestoreData, ...localOnly];
+
+        await updateCache(merged);
+        return merged;
+      } else if (snapshot && snapshot.empty) {
+        for (const blog of DEFAULT_BLOGS) {
+          await setDoc(doc(db, "blogs", blog.id), blog);
+        }
+        await updateCache(DEFAULT_BLOGS);
+        return DEFAULT_BLOGS;
       }
     } catch (err) {
-      console.warn("Firestore blogs fetch error:", err);
+      console.warn("Firestore blogs fetch fallback:", err);
     }
 
-    return cached;
+    return localData;
   },
 
   async getBlogBySlug(slug: string): Promise<BlogArticle | null> {
@@ -77,24 +88,22 @@ export const BlogService = {
       publishedAt: data.publishedAt || new Date().toISOString().slice(0, 10),
     };
 
-    const cached = getCachedBlogs();
-    const updated = [newBlog, ...cached];
-    updateCache(updated);
+    const currentList = await getStoredBlogs();
+    const updated = [newBlog, ...currentList];
+    await updateCache(updated);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "blogs", newId), newBlog);
-      } catch (err) {
-        console.warn("Firestore createBlog sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "blogs", newId), newBlog);
+    } catch (err) {
+      console.warn("Firestore createBlog sync:", err);
+    }
 
     return newBlog;
   },
 
   async updateBlog(id: string, data: Partial<BlogArticle>): Promise<BlogArticle> {
-    const cached = getCachedBlogs();
-    const target = cached.find((b) => b.id === id);
+    const currentList = await getStoredBlogs();
+    const target = currentList.find((b) => b.id === id);
     if (!target) throw new Error("Blog not found");
 
     const updated: BlogArticle = {
@@ -103,31 +112,27 @@ export const BlogService = {
       slug: data.title ? data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") : target.slug,
     };
 
-    const nextList = cached.map((b) => (b.id === id ? updated : b));
-    updateCache(nextList);
+    const nextList = currentList.map((b) => (b.id === id ? updated : b));
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await setDoc(doc(db, "blogs", id), updated, { merge: true });
-      } catch (err) {
-        console.warn("Firestore updateBlog sync:", err);
-      }
-    })();
+    try {
+      await setDoc(doc(db, "blogs", id), updated, { merge: true });
+    } catch (err) {
+      console.warn("Firestore updateBlog sync:", err);
+    }
 
     return updated;
   },
 
   async deleteBlog(id: string): Promise<void> {
-    const cached = getCachedBlogs();
-    const nextList = cached.filter((b) => b.id !== id);
-    updateCache(nextList);
+    const currentList = await getStoredBlogs();
+    const nextList = currentList.filter((b) => b.id !== id);
+    await updateCache(nextList);
 
-    (async () => {
-      try {
-        await deleteDoc(doc(db, "blogs", id));
-      } catch (err) {
-        console.warn("Firestore deleteBlog sync:", err);
-      }
-    })();
+    try {
+      await deleteDoc(doc(db, "blogs", id));
+    } catch (err) {
+      console.warn("Firestore deleteBlog sync:", err);
+    }
   },
 };
