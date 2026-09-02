@@ -14,6 +14,9 @@ import { IdbStorage } from "@/lib/idb-storage";
 
 const HERO_SLIDES_STORAGE_KEY = "lp_hero_slides_v2";
 
+// Images updated in Firebase are guaranteed visible within this window.
+const MAX_CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
 const DEFAULT_SLIDES: HeroSlide[] = HERO_SLIDES.map((s, idx) => ({
   id: s.id,
   title: s.title,
@@ -31,49 +34,48 @@ const DEFAULT_SLIDES: HeroSlide[] = HERO_SLIDES.map((s, idx) => ({
   displayOrder: idx + 1,
 }));
 
-function getCachedSlidesSync(): HeroSlide[] {
-  if (typeof window === "undefined") return DEFAULT_SLIDES;
+// ── Cache helpers ────────────────────────────────────────────────────────────
+
+function normaliseSlide(s: Partial<HeroSlide> & { overlayOpacity?: unknown }): HeroSlide {
+  return {
+    ...(s as HeroSlide),
+    overlayOpacity: typeof s.overlayOpacity === "number" ? s.overlayOpacity : 0.5,
+  };
+}
+
+/** Read slides from IDB (includes syncedAt metadata). Returns null if nothing cached. */
+async function getCachedSlides(): Promise<{ slides: HeroSlide[]; syncedAt: number } | null> {
+  if (typeof window === "undefined") return null;
   try {
+    const meta = await IdbStorage.getWithMeta<HeroSlide[]>(HERO_SLIDES_STORAGE_KEY);
+    if (meta && Array.isArray(meta.data) && meta.data.length > 0) {
+      return { slides: meta.data.map(normaliseSlide), syncedAt: meta.syncedAt };
+    }
+
+    // Legacy fallback: plain localStorage written by older code versions
     const raw = IdbStorage.safeLocalGet(HERO_SLIDES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((s) => ({
-          ...s,
-          overlayOpacity: typeof s.overlayOpacity === "number" ? s.overlayOpacity : 0.5,
-        }));
+        return { slides: parsed.map(normaliseSlide), syncedAt: 0 }; // syncedAt=0 → always stale → will refresh
       }
     }
   } catch {}
-  return DEFAULT_SLIDES;
-}
-
-async function getStoredSlides(): Promise<HeroSlide[]> {
-  if (typeof window === "undefined") return DEFAULT_SLIDES;
-  try {
-    const idbData = await IdbStorage.get<HeroSlide[]>(HERO_SLIDES_STORAGE_KEY);
-    if (Array.isArray(idbData) && idbData.length > 0) {
-      return idbData.map((s) => ({
-        ...s,
-        overlayOpacity: typeof s.overlayOpacity === "number" ? s.overlayOpacity : 0.5,
-      }));
-    }
-  } catch {}
-  return getCachedSlidesSync();
+  return null;
 }
 
 async function updateCache(slides: HeroSlide[]) {
   if (typeof window === "undefined") return;
   try {
-    await IdbStorage.set(HERO_SLIDES_STORAGE_KEY, slides);
+    await IdbStorage.setWithMeta(HERO_SLIDES_STORAGE_KEY, slides);
     IdbStorage.safeLocalSet(HERO_SLIDES_STORAGE_KEY, JSON.stringify(slides));
     window.dispatchEvent(new Event("lp_hero_slides_updated"));
   } catch (err) {
-    console.warn("Cache update error:", err);
+    console.warn("Hero cache update error:", err);
   }
 }
 
-function sanitizeSlideForFirestore(slide: HeroSlide): Record<string, any> {
+function sanitizeSlideForFirestore(slide: HeroSlide): Record<string, unknown> {
   return {
     id: slide.id || `slide-${Date.now()}`,
     title: slide.title || "",
@@ -93,63 +95,86 @@ function sanitizeSlideForFirestore(slide: HeroSlide): Record<string, any> {
   };
 }
 
+// ── Internal: fetch slides from Firestore and merge with local-only entries ──
+
+async function fetchFromFirestore(
+  localSlides: HeroSlide[]
+): Promise<HeroSlide[]> {
+  try {
+    const colRef = collection(db, "heroSlides");
+    const fetchPromise = getDocs(query(colRef, orderBy("displayOrder", "asc")));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore timeout")), 5000)
+    );
+
+    const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as Awaited<
+      ReturnType<typeof getDocs>
+    >;
+
+    if (snapshot && !snapshot.empty) {
+      const firestoreSlides: HeroSlide[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as Record<string, unknown>;
+        return normaliseSlide({
+          id: docSnap.id,
+          title: (data.title as string) || "",
+          subtitle: (data.subtitle as string) || "",
+          location: (data.location as string) || "",
+          badge: (data.badge as string) || "",
+          desktopImage: (data.desktopImage as string) || (data.image as string) || "",
+          mobileImage: (data.mobileImage as string) || (data.desktopImage as string) || (data.image as string) || "",
+          video: (data.video as string) || "",
+          overlayOpacity: data.overlayOpacity as number | undefined,
+          textAlignment: ((data.textAlignment as string) || "left") as "left" | "center" | "right",
+          buttonText: (data.buttonText as string) || "Book Your Stay",
+          buttonLink: (data.buttonLink as string) || "/booking",
+          active: data.active !== false,
+          displayOrder: typeof data.displayOrder === "number" ? data.displayOrder : 1,
+        });
+      });
+
+
+      // Keep slides that only exist locally (e.g. created offline)
+      const firestoreIds = new Set(firestoreSlides.map((s) => s.id));
+      const localOnly = localSlides.filter((s) => !firestoreIds.has(s.id));
+      return [...firestoreSlides, ...localOnly].sort(
+        (a, b) => (a.displayOrder || 1) - (b.displayOrder || 1)
+      );
+    } else if (snapshot && snapshot.empty) {
+      // Auto-seed Firestore with DEFAULT_SLIDES on first run
+      for (const s of DEFAULT_SLIDES) {
+        await setDoc(doc(db, "heroSlides", s.id), sanitizeSlideForFirestore(s));
+      }
+      return DEFAULT_SLIDES;
+    }
+  } catch (err) {
+    console.warn("Firestore heroSlides fetch fallback:", err);
+  }
+
+  return localSlides;
+}
+
+// ── Service ──────────────────────────────────────────────────────────────────
+
 export const HeroService = {
   async getAllSlides(): Promise<HeroSlide[]> {
-    const localSlides = await getStoredSlides();
+    const cached = await getCachedSlides();
+    const cacheAge = cached ? Date.now() - cached.syncedAt : Infinity;
+    const cacheIsStale = cacheAge > MAX_CACHE_AGE_MS;
 
-    try {
-      const colRef = collection(db, "heroSlides");
-      const fetchPromise = getDocs(query(colRef, orderBy("displayOrder", "asc")));
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
-      );
-
-      const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
-
-      if (snapshot && !snapshot.empty) {
-        const firestoreSlides: HeroSlide[] = snapshot.docs.map((docSnap: any) => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            title: data.title || "",
-            subtitle: data.subtitle || "",
-            location: data.location || "",
-            badge: data.badge || "",
-            desktopImage: data.desktopImage || data.image || "",
-            mobileImage: data.mobileImage || data.desktopImage || data.image || "",
-            video: data.video || "",
-            overlayOpacity: typeof data.overlayOpacity === "number" ? data.overlayOpacity : 0.5,
-            textAlignment: (data.textAlignment as "left" | "center" | "right") || "left",
-            buttonText: data.buttonText || "Book Your Stay",
-            buttonLink: data.buttonLink || "/booking",
-            active: data.active !== false,
-            displayOrder: typeof data.displayOrder === "number" ? data.displayOrder : 1,
-          };
-        });
-
-        // Merge to preserve any pending offline/local slides
-        const firestoreIds = new Set(firestoreSlides.map((s) => s.id));
-        const localOnlySlides = localSlides.filter((s) => !firestoreIds.has(s.id));
-        const mergedSlides = [...firestoreSlides, ...localOnlySlides].sort(
-          (a, b) => (a.displayOrder || 1) - (b.displayOrder || 1)
-        );
-
-        await updateCache(mergedSlides);
-        return mergedSlides;
-      } else if (snapshot && snapshot.empty) {
-        // Auto-seed Firestore with DEFAULT_SLIDES
-        for (const s of DEFAULT_SLIDES) {
-          const payload = sanitizeSlideForFirestore(s);
-          await setDoc(doc(db, "heroSlides", s.id), payload);
-        }
-        await updateCache(DEFAULT_SLIDES);
-        return DEFAULT_SLIDES;
-      }
-    } catch (err) {
-      console.warn("Firestore heroSlides fetch fallback:", err);
+    if (cached && !cacheIsStale) {
+      // Cache is fresh — return immediately and silently refresh in the background
+      const localSlides = cached.slides;
+      fetchFromFirestore(localSlides)
+        .then(updateCache)
+        .catch(() => {});
+      return localSlides;
     }
 
-    return localSlides;
+    // Cache is stale or empty — fetch from Firestore first
+    const localSlides = cached ? cached.slides : DEFAULT_SLIDES;
+    const fresh = await fetchFromFirestore(localSlides);
+    await updateCache(fresh);
+    return fresh;
   },
 
   async getActiveSlides(): Promise<HeroSlide[]> {
@@ -160,9 +185,11 @@ export const HeroService = {
   },
 
   async updateSlide(id: string, updated: Partial<HeroSlide>): Promise<HeroSlide> {
-    const currentList = await getStoredSlides();
+    const cached = await getCachedSlides();
+    const currentList = cached ? cached.slides : DEFAULT_SLIDES;
+
     const target = currentList.find((s) => s.id === id) || ({} as HeroSlide);
-    const updatedSlide: HeroSlide = {
+    const updatedSlide: HeroSlide = normaliseSlide({
       ...target,
       ...updated,
       id,
@@ -184,17 +211,15 @@ export const HeroService = {
       buttonLink: updated.buttonLink ?? target.buttonLink ?? "/booking",
       active: updated.active !== undefined ? updated.active : target.active !== false,
       displayOrder: typeof updated.displayOrder === "number" ? updated.displayOrder : target.displayOrder ?? 1,
-    };
+    });
 
     const nextSlides = currentList.some((s) => s.id === id)
       ? currentList.map((s) => (s.id === id ? updatedSlide : s))
       : [...currentList, updatedSlide];
     await updateCache(nextSlides);
 
-    // Direct Firestore update
     try {
-      const payload = sanitizeSlideForFirestore(updatedSlide);
-      await setDoc(doc(db, "heroSlides", id), payload, { merge: true });
+      await setDoc(doc(db, "heroSlides", id), sanitizeSlideForFirestore(updatedSlide), { merge: true });
     } catch (err) {
       console.warn("Firestore updateSlide sync:", err);
     }
@@ -204,7 +229,7 @@ export const HeroService = {
 
   async createSlide(slide: Omit<HeroSlide, "id"> & { id?: string }): Promise<HeroSlide> {
     const newId = slide.id && slide.id.startsWith("slide-") ? slide.id : `slide-${Date.now()}`;
-    const newSlide: HeroSlide = {
+    const newSlide: HeroSlide = normaliseSlide({
       id: newId,
       title: slide.title || "New Himalayan Horizon",
       subtitle: slide.subtitle || "",
@@ -213,25 +238,24 @@ export const HeroService = {
       desktopImage: slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
       mobileImage: slide.mobileImage || slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
       video: slide.video || "",
-      overlayOpacity: typeof slide.overlayOpacity === "number" ? slide.overlayOpacity : 0.5,
+      overlayOpacity: slide.overlayOpacity,
       textAlignment: slide.textAlignment || "left",
       buttonText: slide.buttonText || "Book Your Stay",
       buttonLink: slide.buttonLink || "/booking",
       active: slide.active !== false,
       displayOrder: typeof slide.displayOrder === "number" ? slide.displayOrder : 1,
-    };
+    });
 
-    const currentList = await getStoredSlides();
+    const cached = await getCachedSlides();
+    const currentList = cached ? cached.slides : DEFAULT_SLIDES;
     const exists = currentList.some((s) => s.id === newId);
     const nextSlides = exists
       ? currentList.map((s) => (s.id === newId ? newSlide : s))
       : [...currentList, newSlide];
     await updateCache(nextSlides);
 
-    // Direct Firestore create
     try {
-      const payload = sanitizeSlideForFirestore(newSlide);
-      await setDoc(doc(db, "heroSlides", newId), payload);
+      await setDoc(doc(db, "heroSlides", newId), sanitizeSlideForFirestore(newSlide));
     } catch (err) {
       console.warn("Firestore createSlide sync:", err);
     }
@@ -240,15 +264,20 @@ export const HeroService = {
   },
 
   async deleteSlide(id: string): Promise<void> {
-    const currentList = await getStoredSlides();
+    const cached = await getCachedSlides();
+    const currentList = cached ? cached.slides : DEFAULT_SLIDES;
     const filtered = currentList.filter((s) => s.id !== id);
     await updateCache(filtered);
 
-    // Direct Firestore delete
     try {
       await deleteDoc(doc(db, "heroSlides", id));
     } catch (err) {
       console.warn("Firestore deleteSlide sync:", err);
     }
+  },
+
+  /** Force-invalidate the hero slides cache so the next getAllSlides() hits Firestore. */
+  async invalidateCache(): Promise<void> {
+    await IdbStorage.clearByPrefix(HERO_SLIDES_STORAGE_KEY);
   },
 };

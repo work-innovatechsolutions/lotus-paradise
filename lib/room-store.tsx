@@ -67,6 +67,9 @@ const RoomStoreContext = createContext<RoomStoreCtx | null>(null);
 const PROP_KEY = "lp_properties_v1";
 const ROOM_KEY = "lp_room_store_v3";
 
+// Images / data updated in Firebase are guaranteed visible within this window.
+const MAX_CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEED DATA
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,25 +147,46 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
 
     async function loadData() {
       try {
-        // 1. First check IndexedDB cache for instant display
-        let loadedProps = await IdbStorage.get<StoreProperty[]>(PROP_KEY);
-        let loadedRooms = await IdbStorage.get<StoreRoom[]>(ROOM_KEY);
+        // ── Step 1: Read cached data from IDB / localStorage ──────────────
+        const propMeta = await IdbStorage.getWithMeta<StoreProperty[]>(PROP_KEY);
+        const roomMeta = await IdbStorage.getWithMeta<StoreRoom[]>(ROOM_KEY);
 
-        if (!loadedProps || loadedProps.length === 0) {
+        let cachedProps: StoreProperty[] | null =
+          propMeta && Array.isArray(propMeta.data) && propMeta.data.length > 0
+            ? propMeta.data
+            : null;
+        let cachedRooms: StoreRoom[] | null =
+          roomMeta && Array.isArray(roomMeta.data) && roomMeta.data.length > 0
+            ? roomMeta.data
+            : null;
+
+        // Legacy localStorage fallback (for users who visited before this fix)
+        if (!cachedProps) {
           const rawProps = IdbStorage.safeLocalGet(PROP_KEY);
           if (rawProps) {
-            try { loadedProps = JSON.parse(rawProps); } catch {}
+            try { cachedProps = JSON.parse(rawProps); } catch {}
           }
         }
-        if (!loadedRooms || loadedRooms.length === 0) {
+        if (!cachedRooms) {
           const rawRooms = IdbStorage.safeLocalGet(ROOM_KEY);
           if (rawRooms) {
-            try { loadedRooms = JSON.parse(rawRooms); } catch {}
+            try { cachedRooms = JSON.parse(rawRooms); } catch {}
           }
         }
 
-        const initialProps = (loadedProps && loadedProps.length > 0) ? loadedProps : DEFAULT_PROPERTIES;
-        const initialRooms = (loadedRooms && loadedRooms.length > 0) ? loadedRooms : seedRooms(initialProps);
+        // Check whether the cached data is stale
+        const propAge = propMeta ? Date.now() - propMeta.syncedAt : Infinity;
+        const roomAge = roomMeta ? Date.now() - roomMeta.syncedAt : Infinity;
+        const propStale = propAge > MAX_CACHE_AGE_MS;
+        const roomStale = roomAge > MAX_CACHE_AGE_MS;
+
+        // ── Step 2: Populate state immediately with whatever we have ──────
+        const initialProps = cachedProps && cachedProps.length > 0
+          ? cachedProps
+          : DEFAULT_PROPERTIES;
+        const initialRooms = cachedRooms && cachedRooms.length > 0
+          ? cachedRooms
+          : seedRooms(initialProps);
 
         if (isMounted) {
           setProperties(initialProps);
@@ -170,37 +194,49 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
           setHydrated(true);
         }
 
-        // 2. Fetch latest data from Firestore in background
-        try {
-          const propsSnap = await getDocs(collection(db, "properties"));
-          const roomsSnap = await getDocs(collection(db, "rooms"));
+        // ── Step 3: Fetch from Firestore ──────────────────────────────────
+        // If cache is stale (or empty), we MUST refresh from Firestore.
+        // If cache is fresh, we still do a background refresh so the *next*
+        // page load picks up any changes made by the admin.
+        const shouldFetchProps = propStale || !cachedProps;
+        const shouldFetchRooms = roomStale || !cachedRooms;
 
-          if (!propsSnap.empty && isMounted) {
-            const firestoreProps = propsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as StoreProperty));
-            setProperties(firestoreProps);
-            IdbStorage.set(PROP_KEY, firestoreProps);
-            IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(firestoreProps));
-          } else if (propsSnap.empty) {
-            // Seed Firestore with defaults
-            for (const p of DEFAULT_PROPERTIES) {
-              await setDoc(doc(db, "properties", p.id), p);
-            }
-          }
+        if (shouldFetchProps || shouldFetchRooms) {
+          try {
+            const [propsSnap, roomsSnap] = await Promise.all([
+              getDocs(collection(db, "properties")),
+              getDocs(collection(db, "rooms")),
+            ]);
 
-          if (!roomsSnap.empty && isMounted) {
-            const firestoreRooms = roomsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as StoreRoom));
-            setRooms(firestoreRooms);
-            IdbStorage.set(ROOM_KEY, firestoreRooms);
-            IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(firestoreRooms));
-          } else if (roomsSnap.empty) {
-            // Seed Firestore with rooms
-            const defaultRooms = seedRooms(DEFAULT_PROPERTIES);
-            for (const r of defaultRooms) {
-              await setDoc(doc(db, "rooms", r.id), r);
+            if (propsSnap && !propsSnap.empty && isMounted) {
+              const firestoreProps = propsSnap.docs.map(
+                (d) => ({ id: d.id, ...d.data() } as StoreProperty)
+              );
+              setProperties(firestoreProps);
+              await IdbStorage.setWithMeta(PROP_KEY, firestoreProps);
+              IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(firestoreProps));
+            } else if (propsSnap && propsSnap.empty) {
+              for (const p of DEFAULT_PROPERTIES) {
+                await setDoc(doc(db, "properties", p.id), p);
+              }
             }
+
+            if (roomsSnap && !roomsSnap.empty && isMounted) {
+              const firestoreRooms = roomsSnap.docs.map(
+                (d) => ({ id: d.id, ...d.data() } as StoreRoom)
+              );
+              setRooms(firestoreRooms);
+              await IdbStorage.setWithMeta(ROOM_KEY, firestoreRooms);
+              IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(firestoreRooms));
+            } else if (roomsSnap && roomsSnap.empty) {
+              const defaultRooms = seedRooms(DEFAULT_PROPERTIES);
+              for (const r of defaultRooms) {
+                await setDoc(doc(db, "rooms", r.id), r);
+              }
+            }
+          } catch (fErr) {
+            console.warn("Firestore sync warning (using cached data):", fErr);
           }
-        } catch (fErr) {
-          console.warn("Firestore sync warning (using cached data):", fErr);
         }
       } catch (err) {
         console.error("RoomStore loading error:", err);
@@ -219,28 +255,26 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Save properties safely to IndexedDB and localStorage
+  // Persist to IDB and localStorage whenever state changes (post-hydration)
   useEffect(() => {
     if (hydrated) {
-      IdbStorage.set(PROP_KEY, properties);
+      IdbStorage.setWithMeta(PROP_KEY, properties);
       IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(properties));
     }
   }, [properties, hydrated]);
 
-  // Save rooms safely to IndexedDB and localStorage
   useEffect(() => {
     if (hydrated) {
-      IdbStorage.set(ROOM_KEY, rooms);
+      IdbStorage.setWithMeta(ROOM_KEY, rooms);
       IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(rooms));
     }
   }, [rooms, hydrated]);
 
-  // ── Property actions ───────────────────────────────────────────────────────
+  // ── Property actions ─────────────────────────────────────────────────────
 
   const addProperty = useCallback((p: Omit<StoreProperty, "id">): StoreProperty => {
     const created: StoreProperty = { ...p, id: `prop-${Date.now()}` };
     setProperties((prev) => [...prev, created]);
-    // Save to Firestore
     setDoc(doc(db, "properties", created.id), created).catch(console.error);
     return created;
   }, []);
@@ -264,7 +298,7 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
     deleteDoc(doc(db, "properties", id)).catch(console.error);
   }, []);
 
-  // ── Room actions ───────────────────────────────────────────────────────────
+  // ── Room actions ─────────────────────────────────────────────────────────
 
   const addRoom = useCallback((room: Omit<StoreRoom, "id" | "slug">) => {
     const id = `room-${Date.now()}`;
@@ -303,7 +337,9 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
       prev.map((r) => {
         if (r.id === id) {
           const updated = { ...r, available: !r.available };
-          setDoc(doc(db, "rooms", id), { available: updated.available }, { merge: true }).catch(console.error);
+          setDoc(doc(db, "rooms", id), { available: updated.available }, { merge: true }).catch(
+            console.error
+          );
           return updated;
         }
         return r;

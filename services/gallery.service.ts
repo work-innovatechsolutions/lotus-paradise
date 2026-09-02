@@ -12,6 +12,9 @@ import { IdbStorage } from "@/lib/idb-storage";
 
 const GALLERY_STORAGE_KEY = "lp_gallery_items_v2";
 
+// Images updated in Firebase are guaranteed visible within this window.
+const MAX_CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
 const DEFAULT_GALLERY: GalleryItem[] = GALLERY_ITEMS.map((g) => ({
   id: g.id,
   title: g.title,
@@ -27,11 +30,15 @@ const DEFAULT_GALLERY: GalleryItem[] = GALLERY_ITEMS.map((g) => ({
   uploadedAt: new Date().toISOString(),
 }));
 
+// ── Cache helpers ────────────────────────────────────────────────────────────
+
 async function getStoredGallery(): Promise<GalleryItem[]> {
   if (typeof window === "undefined") return DEFAULT_GALLERY;
   try {
-    const idbData = await IdbStorage.get<GalleryItem[]>(GALLERY_STORAGE_KEY);
-    if (Array.isArray(idbData) && idbData.length > 0) return idbData;
+    const meta = await IdbStorage.getWithMeta<GalleryItem[]>(GALLERY_STORAGE_KEY);
+    if (meta && Array.isArray(meta.data) && meta.data.length > 0) return meta.data;
+
+    // Legacy fallback: raw localStorage value written by older code versions
     const raw = IdbStorage.safeLocalGet(GALLERY_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -44,44 +51,65 @@ async function getStoredGallery(): Promise<GalleryItem[]> {
 async function updateCache(items: GalleryItem[]) {
   if (typeof window === "undefined") return;
   try {
-    await IdbStorage.set(GALLERY_STORAGE_KEY, items);
+    await IdbStorage.setWithMeta(GALLERY_STORAGE_KEY, items);
+    // Keep legacy localStorage key in sync for any code that still reads it directly
     IdbStorage.safeLocalSet(GALLERY_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new Event("lp_gallery_updated"));
   } catch (err) {
-    console.warn("Cache update error:", err);
+    console.warn("Gallery cache update error:", err);
   }
 }
 
+// ── Service ──────────────────────────────────────────────────────────────────
+
 export const GalleryService = {
   async getAllItems(): Promise<GalleryItem[]> {
-    const localItems = await getStoredGallery();
+    // Check whether the cache is stale BEFORE deciding to use it
+    const cacheIsStale = await IdbStorage.isStale(GALLERY_STORAGE_KEY, MAX_CACHE_AGE_MS);
 
+    if (!cacheIsStale) {
+      // Cache is fresh — return it immediately and kick off a silent background refresh
+      const cachedItems = await getStoredGallery();
+      // Background refresh so the *next* load is up-to-date
+      this._fetchFromFirestore(cachedItems).then(updateCache).catch(() => {});
+      return cachedItems;
+    }
+
+    // Cache is stale (or empty) — fetch from Firestore first
+    const localItems = await getStoredGallery();
+    const fresh = await this._fetchFromFirestore(localItems);
+    await updateCache(fresh);
+    return fresh;
+  },
+
+  /** Internal: fetch from Firestore and merge with local-only items. */
+  async _fetchFromFirestore(localItems: GalleryItem[]): Promise<GalleryItem[]> {
     try {
       const colRef = collection(db, "gallery");
       const fetchPromise = getDocs(colRef);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout")), 4000)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Firestore timeout")), 5000)
       );
 
-      const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+      const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as Awaited<
+        ReturnType<typeof getDocs>
+      >;
 
       if (snapshot && !snapshot.empty) {
-        const firestoreItems: GalleryItem[] = snapshot.docs.map((docSnap: any) => ({
+        const firestoreItems: GalleryItem[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
-          ...docSnap.data(),
+          ...(docSnap.data() as Omit<GalleryItem, "id">),
         }));
 
+        // Keep items that only exist locally (offline-created)
         const firestoreIds = new Set(firestoreItems.map((g) => g.id));
         const localOnly = localItems.filter((g) => !firestoreIds.has(g.id));
-        const merged = [...firestoreItems, ...localOnly];
-
-        await updateCache(merged);
-        return merged;
+        return [...firestoreItems, ...localOnly];
       } else if (snapshot && snapshot.empty) {
+        // Auto-seed Firestore with defaults on first run
         for (const item of DEFAULT_GALLERY) {
           await setDoc(doc(db, "gallery", item.id), item);
         }
-        await updateCache(DEFAULT_GALLERY);
         return DEFAULT_GALLERY;
       }
     } catch (err) {
@@ -153,5 +181,10 @@ export const GalleryService = {
     }
 
     return newItem;
+  },
+
+  /** Force-invalidate the gallery cache so the next getAllItems() hits Firestore. */
+  async invalidateCache(): Promise<void> {
+    await IdbStorage.clearByPrefix(GALLERY_STORAGE_KEY);
   },
 };
