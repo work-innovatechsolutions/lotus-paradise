@@ -1,4 +1,15 @@
 import { NotificationService } from "./notification.service";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc,
+  query,
+  orderBy,
+} from "firebase/firestore";
+import { IdbStorage } from "@/lib/idb-storage";
 
 export interface EnquiryData {
   id: string;
@@ -14,7 +25,9 @@ export interface EnquiryData {
   createdAt: string;
 }
 
-let inMemoryEnquiries: EnquiryData[] = [
+const ENQUIRY_STORAGE_KEY = "lp_enquiries_v1";
+
+const DEFAULT_ENQUIRIES: EnquiryData[] = [
   {
     id: "enq-1",
     name: "Siddharth Roy",
@@ -27,9 +40,52 @@ let inMemoryEnquiries: EnquiryData[] = [
   },
 ];
 
+function getCachedEnquiries(): EnquiryData[] {
+  if (typeof window === "undefined") return DEFAULT_ENQUIRIES;
+  try {
+    const raw = IdbStorage.safeLocalGet(ENQUIRY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_ENQUIRIES;
+}
+
+function updateCache(items: EnquiryData[]) {
+  if (typeof window === "undefined") return;
+  try {
+    IdbStorage.safeLocalSet(ENQUIRY_STORAGE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new Event("lp_enquiries_updated"));
+  } catch {}
+}
+
 export const EnquiryService = {
   async getAllEnquiries(): Promise<EnquiryData[]> {
-    return [...inMemoryEnquiries];
+    const cached = getCachedEnquiries();
+
+    try {
+      const colRef = collection(db, "enquiries");
+      const fetchPromise = getDocs(query(colRef, orderBy("createdAt", "desc")));
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Firestore timeout")), 2500)
+      );
+
+      const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
+      if (snapshot && !snapshot.empty) {
+        const firestoreData = snapshot.docs.map((docSnap: any) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as EnquiryData[];
+
+        updateCache(firestoreData);
+        return firestoreData;
+      }
+    } catch (err) {
+      console.warn("Firestore enquiries fetch error:", err);
+    }
+
+    return cached;
   },
 
   async createEnquiry(data: Omit<EnquiryData, "id" | "status" | "createdAt">): Promise<EnquiryData> {
@@ -39,7 +95,18 @@ export const EnquiryService = {
       status: "UNREAD",
       createdAt: new Date().toISOString(),
     };
-    inMemoryEnquiries.unshift(newEnq);
+
+    const cached = getCachedEnquiries();
+    const updated = [newEnq, ...cached];
+    updateCache(updated);
+
+    (async () => {
+      try {
+        await setDoc(doc(db, "enquiries", newEnq.id), newEnq);
+      } catch (err) {
+        console.warn("Firestore createEnquiry sync:", err);
+      }
+    })();
 
     await NotificationService.createNotification({
       title: `New Guest Enquiry from ${newEnq.name}`,
@@ -52,20 +119,57 @@ export const EnquiryService = {
   },
 
   async markAsRead(id: string): Promise<void> {
-    inMemoryEnquiries = inMemoryEnquiries.map((e) => (e.id === id ? { ...e, status: "READ" } : e));
+    const cached = getCachedEnquiries();
+    const updated = cached.map((e) => (e.id === id ? { ...e, status: "READ" as const } : e));
+    updateCache(updated);
+
+    (async () => {
+      try {
+        await setDoc(doc(db, "enquiries", id), { status: "READ" }, { merge: true });
+      } catch (err) {
+        console.warn("Firestore markAsRead sync:", err);
+      }
+    })();
   },
 
   async replyToEnquiry(id: string, replyMessage: string, assignedTo = "Manager"): Promise<EnquiryData> {
-    const target = inMemoryEnquiries.find((e) => e.id === id);
+    const cached = getCachedEnquiries();
+    const target = cached.find((e) => e.id === id);
     if (!target) throw new Error("Enquiry not found");
-    target.status = "REPLIED";
-    target.reply = replyMessage;
-    target.assignedTo = assignedTo;
-    target.repliedAt = new Date().toISOString();
-    return target;
+
+    const updated: EnquiryData = {
+      ...target,
+      status: "REPLIED",
+      reply: replyMessage,
+      assignedTo,
+      repliedAt: new Date().toISOString(),
+    };
+
+    const nextList = cached.map((e) => (e.id === id ? updated : e));
+    updateCache(nextList);
+
+    (async () => {
+      try {
+        await setDoc(doc(db, "enquiries", id), updated, { merge: true });
+      } catch (err) {
+        console.warn("Firestore replyToEnquiry sync:", err);
+      }
+    })();
+
+    return updated;
   },
 
   async deleteEnquiry(id: string): Promise<void> {
-    inMemoryEnquiries = inMemoryEnquiries.filter((e) => e.id !== id);
+    const cached = getCachedEnquiries();
+    const updated = cached.filter((e) => e.id !== id);
+    updateCache(updated);
+
+    (async () => {
+      try {
+        await deleteDoc(doc(db, "enquiries", id));
+      } catch (err) {
+        console.warn("Firestore deleteEnquiry sync:", err);
+      }
+    })();
   },
 };

@@ -162,7 +162,7 @@ export default function HomePage() {
 
               <SectionReveal delay={0.2}>
                 <h2 className="font-serif text-3xl sm:text-5xl font-bold text-[#1F1F1F] leading-[1.1]">
-                  At Lotus Paradise, We Don&apos;t Simply Offer Rooms.{" "}
+                  At The Cometas, We Don&apos;t Simply Offer Rooms.{" "}
                   <em className="luxury-text-red not-italic">We Create Experiences.</em>
                 </h2>
               </SectionReveal>

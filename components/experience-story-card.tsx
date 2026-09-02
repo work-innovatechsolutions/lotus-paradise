@@ -1,12 +1,30 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { EXPERIENCES } from "@/lib/data";
+import { ExperienceService } from "@/services/experience.service";
+import type { ExperienceData } from "@/lib/data";
 import { Clock, Calendar, ArrowRight, CheckCircle2 } from "lucide-react";
 
 export default function ExperienceStoryCard() {
+  const [experiences, setExperiences] = useState<ExperienceData[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const data = await ExperienceService.getFeaturedExperiences();
+      setExperiences(data);
+    }
+    load();
+
+    const handleUpdate = () => {
+      load();
+    };
+
+    window.addEventListener("lp_experiences_updated", handleUpdate);
+    return () => window.removeEventListener("lp_experiences_updated", handleUpdate);
+  }, []);
+
   return (
     <section className="py-24 bg-[#FBF8F3] relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -25,7 +43,7 @@ export default function ExperienceStoryCard() {
 
         {/* ALTERNATING STORY CARDS */}
         <div className="space-y-24">
-          {EXPERIENCES.map((exp, index) => {
+          {experiences.map((exp, index) => {
             const isEven = index % 2 === 0;
             return (
               <div

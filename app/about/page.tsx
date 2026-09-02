@@ -15,7 +15,7 @@ export default function AboutPage() {
           Colonial Charm Meets Himalayan Serenity
         </h1>
         <p className="font-display text-xl text-[#C62828] italic">
-          &quot;At Lotus Paradise, we don&apos;t simply offer rooms. We create experiences.&quot;
+          &quot;At The Cometas, we don&apos;t simply offer rooms. We create experiences.&quot;
         </p>
       </div>
 
@@ -32,13 +32,13 @@ export default function AboutPage() {
 
         <div className="lg:col-span-6 space-y-6 text-[#1F1F1F]">
           <h2 className="font-serif text-3xl font-bold">
-            The Story of Latpanchar & Lotus Paradise
+            The Story of Latpanchar & The Cometas
           </h2>
           <p className="font-sans text-sm text-gray-700 leading-relaxed">
             Latpanchar sits at an altitude of 4,500 feet inside the Kurseong hill division of Darjeeling district. Developed during British rule as the center for Cinchona plantation, it remains one of the cleanest, most serene mountain villages in North Bengal.
           </p>
           <p className="font-sans text-sm text-gray-700 leading-relaxed">
-            Lotus Paradise Homestay was founded with a singular vision: to offer travelers an authentic Himalayan retreat that feels like a warm home rather than a commercial hotel. We combine colonial Darjeeling woodwork, monastery-inspired peace, and traditional Bengali home-cooked hospitality.
+            The Cometas Homestay was founded with a singular vision: to offer travelers an authentic Himalayan retreat that feels like a warm home rather than a commercial hotel. We combine colonial Darjeeling woodwork, monastery-inspired peace, and traditional Bengali home-cooked hospitality.
           </p>
 
           <div className="grid grid-cols-2 gap-4 pt-2 font-accent text-xs font-bold text-[#2C2473]">

@@ -136,7 +136,7 @@ export default function Footer() {
               {[
                 { name: "Home", href: "/" },
                 { name: "Our Rooms", href: "/rooms" },
-                { name: "Signature Experiences", href: "/experiences" },
+                { name: "Blogs & Travel Guides", href: "/blog" },
                 { name: "Photo Gallery", href: "/gallery" },
                 { name: "Corporate Offsites", href: "/corporate" },
                 { name: "About Our Story", href: "/about" },
@@ -198,11 +198,20 @@ export default function Footer() {
                 <MapPin className="w-4 h-4 text-[#C62828] shrink-0 mt-0.5" />
                 <span>Upper Latpanchar, Kurseong Division, Darjeeling District, West Bengal - 734008</span>
               </li>
-              <li className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-[#C89D45] shrink-0" />
-                <a href="tel:+919832012345" className="hover:text-[#C62828] transition-colors">
-                  +91 98320 12345 / +91 94340 67890
-                </a>
+              <li className="flex items-start gap-2.5">
+                <Phone className="w-4 h-4 text-[#C89D45] shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <a href="tel:+919832012345" className="hover:text-[#C62828] transition-colors">+91 98320 12345</a>
+                    <span className="text-gray-300">/</span>
+                    <a href="tel:+919732300111" className="hover:text-[#C62828] transition-colors">+91 97323 00111</a>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <a href="tel:+919242796931" className="hover:text-[#C62828] transition-colors">+91 92427 96931</a>
+                    <span className="text-gray-300">/</span>
+                    <a href="tel:+917699993099" className="hover:text-[#C62828] transition-colors">+91 76999 93099</a>
+                  </div>
+                </div>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-[#C89D45] shrink-0" />

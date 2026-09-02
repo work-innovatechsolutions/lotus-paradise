@@ -40,7 +40,9 @@ export default function AdminSettingsPage() {
     siteName: "The Cometas",
     tagline: "A Luxury Himalayan Homestay in Latpanchar",
     phone1: "+91 98320 12345",
-    phone2: "+91 94340 67890",
+    phone2: "+91 97323 00111",
+    phone3: "+91 92427 96931",
+    phone4: "+91 76999 93099",
     whatsappNumber: "+919832012345",
     email: "stay@lotusparadisehomestay.com",
     address: "Upper Latpanchar Forest Road, Kurseong Division, West Bengal - 734008",
@@ -377,7 +379,7 @@ export default function AdminSettingsPage() {
           Contact Numbers &amp; Instant WhatsApp
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
               Phone Number 1
@@ -386,6 +388,39 @@ export default function AdminSettingsPage() {
               type="text"
               value={settings.phone1}
               onChange={(e) => setSettings({ ...settings, phone1: e.target.value })}
+              className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+              Phone Number 2
+            </label>
+            <input
+              type="text"
+              value={settings.phone2}
+              onChange={(e) => setSettings({ ...settings, phone2: e.target.value })}
+              className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+              Phone Number 3
+            </label>
+            <input
+              type="text"
+              value={settings.phone3}
+              onChange={(e) => setSettings({ ...settings, phone3: e.target.value })}
+              className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+              Phone Number 4
+            </label>
+            <input
+              type="text"
+              value={settings.phone4}
+              onChange={(e) => setSettings({ ...settings, phone4: e.target.value })}
               className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
             />
           </div>

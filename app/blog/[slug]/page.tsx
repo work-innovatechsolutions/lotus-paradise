@@ -1,7 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BLOG_POSTS } from "@/lib/data";
+import { BLOG_POSTS, type BlogArticle } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Calendar, Clock, ArrowLeft } from "lucide-react";
 
@@ -52,10 +52,11 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
 
       <div className="relative h-80 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border border-[#C89D45]/40">
         <Image
-          src={post.coverImage}
+          src={post.coverImage || "/images/hero/bengal-latpanchar.jpg.jpeg"}
           alt={post.title}
           fill
           className="object-cover"
+          unoptimized={post.coverImage?.startsWith("data:")}
         />
       </div>
 
@@ -63,7 +64,9 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
         <p className="font-display text-lg italic text-[#C62828]">
           &quot;{post.excerpt}&quot;
         </p>
-        <p>{post.content}</p>
+        <div className="whitespace-pre-line leading-relaxed">
+          {post.content}
+        </div>
         <p>
           Visiting Latpanchar during this season offers unmatched tranquility, birdwatching, and mountain hospitality. Reserve your stay at Lotus Paradise Homestay to experience nature firsthand.
         </p>

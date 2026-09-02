@@ -68,7 +68,15 @@ export default function ContactPage() {
               <Phone className="w-5 h-5 text-[#C89D45] shrink-0 mt-0.5" />
               <div>
                 <strong className="block font-accent text-sm">Phone Numbers:</strong>
-                <span>+91 98320 12345 / +91 94340 67890</span>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-3 gap-y-1 mt-0.5 text-xs">
+                  <a href="tel:+919832012345" className="hover:text-[#C62828] transition-colors font-medium">+91 98320 12345</a>
+                  <span className="hidden sm:inline text-gray-300">•</span>
+                  <a href="tel:+919732300111" className="hover:text-[#C62828] transition-colors font-medium">+91 97323 00111</a>
+                  <span className="hidden sm:inline text-gray-300">•</span>
+                  <a href="tel:+919242796931" className="hover:text-[#C62828] transition-colors font-medium">+91 92427 96931</a>
+                  <span className="hidden sm:inline text-gray-300">•</span>
+                  <a href="tel:+917699993099" className="hover:text-[#C62828] transition-colors font-medium">+91 76999 93099</a>
+                </div>
               </div>
             </div>
 

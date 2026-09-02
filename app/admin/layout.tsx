@@ -27,6 +27,7 @@ import {
   ShieldCheck,
   AlertCircle,
   ArrowRight,
+  BookOpen,
 } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -87,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Corporate Leads", href: "/admin/corporate-leads", icon: <Building2 className="w-4 h-4" /> },
     { name: "Rooms Management", href: "/admin/rooms", icon: <Bed className="w-4 h-4" /> },
     { name: "Gallery & SEO Alt", href: "/admin/gallery", icon: <ImageIcon className="w-4 h-4" /> },
-    { name: "Experiences", href: "/admin/experiences", icon: <Compass className="w-4 h-4" /> },
+    { name: "Blogs & Articles", href: "/admin/blogs", icon: <BookOpen className="w-4 h-4" /> },
     { name: "Customer Enquiries", href: "/admin/enquiries", icon: <Inbox className="w-4 h-4" /> },
     { name: "Website Settings", href: "/admin/settings", icon: <Settings className="w-4 h-4" /> },
   ];

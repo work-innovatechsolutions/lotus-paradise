@@ -2,21 +2,43 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { GALLERY_ITEMS } from "@/lib/data";
+import { GalleryService } from "@/services/gallery.service";
+import type { GalleryItem } from "@/types/gallery";
 import { Maximize2, X, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import SectionReveal from "./section-reveal";
 
 export default function GalleryMasonry() {
+  const [items, setItems] = useState<GalleryItem[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const categories = ["All", "Nature", "Rooms", "Food", "Events", "Birding", "Sunrise"];
 
+  useEffect(() => {
+    async function load() {
+      const data = await GalleryService.getAllItems();
+      setItems(data);
+    }
+    load();
+
+    const handleUpdate = () => {
+      load();
+    };
+
+    window.addEventListener("lp_gallery_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("lp_gallery_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
   const filteredItems =
     activeCategory === "All"
-      ? GALLERY_ITEMS
-      : GALLERY_ITEMS.filter((item) => item.category === activeCategory);
+      ? items
+      : items.filter((item) => item.category.toLowerCase() === activeCategory.toLowerCase());
 
   const openLightbox = (idx: number) => setLightboxIndex(idx);
   const closeLightbox = () => setLightboxIndex(null);
@@ -144,6 +166,7 @@ export default function GalleryMasonry() {
                   alt={item.title}
                   width={600}
                   height={450}
+                  unoptimized={item.imageUrl?.startsWith("data:")}
                   className="w-full h-auto object-cover group-hover:scale-108 transition-transform duration-700"
                   style={{ transition: "transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}
                 />
@@ -198,6 +221,7 @@ export default function GalleryMasonry() {
                 src={filteredItems[lightboxIndex].imageUrl}
                 alt={filteredItems[lightboxIndex].title}
                 fill
+                unoptimized={filteredItems[lightboxIndex].imageUrl?.startsWith("data:")}
                 className="object-contain"
               />
             </div>

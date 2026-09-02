@@ -1,17 +1,37 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { EXPERIENCES } from "@/lib/data";
+import { ExperienceService } from "@/services/experience.service";
+import type { ExperienceData } from "@/lib/data";
 import { Plus, Edit3, Trash2, Compass } from "lucide-react";
 
 export default function AdminExperiencesPage() {
-  const [experiences, setExperiences] = useState(EXPERIENCES);
+  const [experiences, setExperiences] = useState<ExperienceData[]>([]);
 
-  const toggleFeatured = (id: string) => {
-    setExperiences(
-      experiences.map((exp) => (exp.id === id ? { ...exp, featured: !exp.featured } : exp))
-    );
+  useEffect(() => {
+    async function load() {
+      const data = await ExperienceService.getAllExperiences();
+      setExperiences(data);
+    }
+    load();
+
+    const handleUpdate = () => {
+      load();
+    };
+
+    window.addEventListener("lp_experiences_updated", handleUpdate);
+    return () => window.removeEventListener("lp_experiences_updated", handleUpdate);
+  }, []);
+
+  const toggleFeatured = async (id: string) => {
+    await ExperienceService.toggleFeatured(id);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this experience?")) {
+      await ExperienceService.deleteExperience(id);
+    }
   };
 
   return (

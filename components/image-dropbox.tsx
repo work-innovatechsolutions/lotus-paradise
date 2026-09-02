@@ -3,6 +3,7 @@
 import React, { useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { Upload, X, ImagePlus, Loader2 } from "lucide-react";
+import { compressImageToWebP } from "@/lib/image-compressor";
 
 interface ImageDropboxProps {
   /** Already-saved image URLs/base64 to display */
@@ -24,48 +25,7 @@ export default function ImageDropbox({
   const [dragging, setDragging] = useState(false);
   const [loading,  setLoading]  = useState(false);
 
-  // ── Convert File → Compressed base64 data-URL ─────────────────────────────
-  const toCompressedDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (readerEvent) => {
-        const image = new window.Image();
-        image.onload = () => {
-          const maxDim = 1600;
-          let width = image.width;
-          let height = image.height;
-
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(image, 0, 0, width, height);
-            const compressedUrl = canvas.toDataURL("image/jpeg", 0.82);
-            resolve(compressedUrl);
-          } else {
-            resolve(readerEvent.target?.result as string);
-          }
-        };
-        image.onerror = () => resolve(readerEvent.target?.result as string);
-        image.src = readerEvent.target?.result as string;
-      };
-      reader.onerror = () => resolve("");
-      reader.readAsDataURL(file);
-    });
-
-  // ── Process accepted files ───────────────────────────────────────────────────
+  // ── Process accepted files & compress to WebP ────────────────────────────────
   const processFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -75,14 +35,29 @@ export default function ImageDropbox({
         f.type.startsWith("image/")
       );
 
-      const dataUrls = (await Promise.all(accepted.map(toCompressedDataUrl))).filter(Boolean);
+      try {
+        const dataUrls = (
+          await Promise.all(
+            accepted.map((file) =>
+              compressImageToWebP(file, {
+                maxDimension: multiple ? 1000 : 1200,
+                quality: 0.72,
+                maxSizeBytes: multiple ? 120 * 1024 : 180 * 1024,
+              })
+            )
+          )
+        ).filter(Boolean);
 
-      if (multiple) {
-        onChange([...images, ...dataUrls]);
-      } else {
-        onChange(dataUrls.slice(0, 1)); // single mode — replace
+        if (multiple) {
+          onChange([...images, ...dataUrls]);
+        } else {
+          onChange(dataUrls.slice(0, 1)); // single mode — replace
+        }
+      } catch (err) {
+        console.error("Image processing error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
     [images, multiple, onChange]
   );
