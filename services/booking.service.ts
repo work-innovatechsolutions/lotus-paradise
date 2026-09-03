@@ -1,6 +1,7 @@
 import type { Booking, BookingStatus } from "@/types/booking";
 import { AvailabilityService } from "@/services/availability.service";
 import { NotificationService } from "@/services/notification.service";
+import { GoogleSheetService } from "@/services/google-sheet.service";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -15,68 +16,8 @@ import { IdbStorage } from "@/lib/idb-storage";
 
 const BOOKINGS_STORAGE_KEY = "lp_bookings_v2";
 
-const DEFAULT_BOOKINGS: Booking[] = [
-  {
-    id: "booking-1",
-    bookingNumber: "LPH-849201",
-    guestName: "Anirban Roy",
-    email: "anirban.roy@example.com",
-    phone: "+91 98300 12345",
-    roomId: "room-1",
-    roomTitle: "Kanchenjunga Grand Deluxe Suite",
-    pricePerNight: 4800,
-    discount: 0,
-    tax: 0,
-    totalAmount: 14400,
-    checkIn: "2026-09-15",
-    checkOut: "2026-09-18",
-    nights: 3,
-    guestsCount: 2,
-    specialRequests: "High floor balcony view, vegetarian breakfast",
-    status: "CONFIRMED",
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-  },
-  {
-    id: "booking-2",
-    bookingNumber: "LPH-710294",
-    guestName: "Dr. Richard Miller",
-    email: "richard@example.com",
-    phone: "+44 7911 123456",
-    roomId: "room-2",
-    roomTitle: "Heritage Family Duplex Suite",
-    pricePerNight: 6500,
-    discount: 0,
-    tax: 0,
-    totalAmount: 19500,
-    checkIn: "2026-09-20",
-    checkOut: "2026-09-23",
-    nights: 3,
-    guestsCount: 4,
-    specialRequests: "Birding guide needed for morning walks",
-    status: "PENDING",
-    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-  },
-  {
-    id: "booking-3",
-    bookingNumber: "LPH-639102",
-    guestName: "Swati Sengupta",
-    email: "swati.s@example.com",
-    phone: "+91 94330 98765",
-    roomId: "room-3",
-    roomTitle: "Colonial Couple Retreat",
-    pricePerNight: 3900,
-    discount: 0,
-    tax: 0,
-    totalAmount: 7800,
-    checkIn: "2026-09-25",
-    checkOut: "2026-09-27",
-    nights: 2,
-    guestsCount: 2,
-    specialRequests: "Anniversary setup with candlelit dinner",
-    status: "CONFIRMED",
-    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-  },
-];
+// Only real bookings are stored
+const DEFAULT_BOOKINGS: Booking[] = [];
 
 function getCachedBookings(): Booking[] {
   if (typeof window === "undefined") return DEFAULT_BOOKINGS;
@@ -171,6 +112,15 @@ export const BookingService = {
         detailsUrl: "/admin/bookings",
       });
     } catch {}
+
+    // Trigger Google Sheet live sync in background
+    (async () => {
+      try {
+        await GoogleSheetService.syncBookingToSheet(newBooking);
+      } catch (err) {
+        console.warn("Google Sheet sync warning:", err);
+      }
+    })();
 
     return newBooking;
   },

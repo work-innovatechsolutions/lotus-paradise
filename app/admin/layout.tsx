@@ -60,6 +60,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.addEventListener("storage", handleUpdate);
     window.addEventListener("storage", handleLocksUpdate);
 
+    // Real-time Firestore sync for admin locks
+    const unsubscribeLocks = PanelLockService.subscribeToFirestore(() => {
+      setLockVersion((v) => v + 1);
+    });
+    PanelLockService.loadFromFirestore();
+
     let unsubscribeAuth = () => {};
     import("@/lib/firebase").then(({ auth }) => {
       import("firebase/auth").then(({ onAuthStateChanged }) => {
@@ -76,6 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       window.removeEventListener("lp_admin_locks_updated", handleLocksUpdate);
       window.removeEventListener("storage", handleUpdate);
       window.removeEventListener("storage", handleLocksUpdate);
+      unsubscribeLocks();
       unsubscribeAuth();
     };
   }, []);

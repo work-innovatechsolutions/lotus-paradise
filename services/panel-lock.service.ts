@@ -1,11 +1,14 @@
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+
 export interface AdminPanelLockConfig {
   enabled: boolean;
   passcode: string;
   lockedRoutes: string[];
+  updatedAt?: string;
 }
 
 const STORAGE_KEY = "lp_admin_panel_locks";
-const SESSION_UNLOCKED_KEY = "lp_unlocked_routes";
 
 const DEFAULT_CONFIG: AdminPanelLockConfig = {
   enabled: false,
@@ -13,16 +16,19 @@ const DEFAULT_CONFIG: AdminPanelLockConfig = {
   lockedRoutes: [],
 };
 
-// In-memory unlocked routes: Resets on every page refresh!
+// In-memory cache for ultra-fast synchronous checks
+let inMemoryConfig: AdminPanelLockConfig | null = null;
 const inMemoryUnlockedRoutes = new Set<string>();
 
 export const PanelLockService = {
   getConfig(): AdminPanelLockConfig {
+    if (inMemoryConfig) return inMemoryConfig;
     if (typeof window === "undefined") return DEFAULT_CONFIG;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        inMemoryConfig = JSON.parse(saved);
+        return inMemoryConfig!;
       }
     } catch (e) {
       console.error("Error reading panel lock config:", e);
@@ -30,13 +36,79 @@ export const PanelLockService = {
     return DEFAULT_CONFIG;
   },
 
-  saveConfig(config: AdminPanelLockConfig): void {
-    if (typeof window === "undefined") return;
+  async saveConfig(config: AdminPanelLockConfig): Promise<void> {
+    const payload: AdminPanelLockConfig = {
+      ...config,
+      updatedAt: new Date().toISOString(),
+    };
+    inMemoryConfig = payload;
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        window.dispatchEvent(new Event("lp_admin_locks_updated"));
+      } catch (e) {
+        console.error("Error saving panel lock config to localStorage:", e);
+      }
+    }
+
+    // Sync to Cloud Firestore
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      window.dispatchEvent(new Event("lp_admin_locks_updated"));
+      await setDoc(doc(db, "siteSettings", "panelLock"), payload, { merge: true });
     } catch (e) {
-      console.error("Error saving panel lock config:", e);
+      console.warn("Firestore saveConfig error (siteSettings):", e);
+      try {
+        await setDoc(doc(db, "settings", "panelLock"), payload, { merge: true });
+      } catch (err) {
+        console.error("Firestore saveConfig fallback error:", err);
+      }
+    }
+  },
+
+  async loadFromFirestore(): Promise<AdminPanelLockConfig> {
+    try {
+      const docRef = doc(db, "siteSettings", "panelLock");
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data() as AdminPanelLockConfig;
+        inMemoryConfig = data;
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          window.dispatchEvent(new Event("lp_admin_locks_updated"));
+        }
+        return data;
+      }
+    } catch (err) {
+      console.warn("Firestore panelLock fetch error:", err);
+    }
+    return this.getConfig();
+  },
+
+  subscribeToFirestore(callback?: (config: AdminPanelLockConfig) => void): () => void {
+    if (typeof window === "undefined") return () => {};
+    try {
+      const docRef = doc(db, "siteSettings", "panelLock");
+      const unsubscribe = onSnapshot(
+        docRef,
+        (snap) => {
+          if (snap.exists()) {
+            const data = snap.data() as AdminPanelLockConfig;
+            inMemoryConfig = data;
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+              window.dispatchEvent(new Event("lp_admin_locks_updated"));
+            } catch {}
+            if (callback) callback(data);
+          }
+        },
+        (err) => {
+          console.warn("Firestore panelLock subscription warning:", err);
+        }
+      );
+      return unsubscribe;
+    } catch (e) {
+      console.warn("Could not subscribe to panelLock in Firestore:", e);
+      return () => {};
     }
   },
 

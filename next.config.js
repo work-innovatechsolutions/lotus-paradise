@@ -30,6 +30,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/room",
+        destination: "/rooms",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

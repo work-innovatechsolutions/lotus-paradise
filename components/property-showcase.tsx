@@ -198,12 +198,17 @@ function PropertyCard({
           </div>
 
           {minPrice && (
-            <div
-              className="text-white px-3.5 py-1.5 rounded-full text-xs font-accent font-bold tracking-wider border border-[#C89D45]/40 shadow-lg shrink-0"
-              style={{ background: "linear-gradient(135deg, #C62828, #8B1E1E)" }}
-            >
-              From {formatPrice(minPrice)}{" "}
-              <span className="font-normal text-[10px] opacity-80">/ night</span>
+            <div className="flex flex-col items-end gap-1">
+              <div
+                className="text-white px-3.5 py-1.5 rounded-full text-xs font-accent font-bold tracking-wider border border-[#C89D45]/40 shadow-lg shrink-0"
+                style={{ background: "linear-gradient(135deg, #C62828, #8B1E1E)" }}
+              >
+                From {formatPrice(minPrice)}{" "}
+                <span className="font-normal text-[10px] opacity-80">/ pax / day</span>
+              </div>
+              <span className="text-[9px] font-accent uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 backdrop-blur-sm">
+                Fooding &amp; Lodging Included
+              </span>
             </div>
           )}
         </div>

@@ -3,13 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { formatPrice } from "@/lib/utils";
 import { BookingService } from "@/services/booking.service";
+import { GoogleSheetService } from "@/services/google-sheet.service";
 import type { Booking, BookingStatus } from "@/types/booking";
-import { Download, Search, CheckCircle2, Clock, XCircle, FileText, UserCheck, LogOut as LogOutIcon } from "lucide-react";
+import { Download, Search, CheckCircle2, Clock, XCircle, FileText, UserCheck, LogOut as LogOutIcon, FileSpreadsheet, RefreshCw } from "lucide-react";
 
 export default function AdminBookingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [syncingSheet, setSyncingSheet] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     loadBookings();
@@ -61,6 +64,33 @@ export default function AdminBookingsPage() {
     document.body.removeChild(link);
   };
 
+  const handleSyncSheet = async () => {
+    setSyncingSheet(true);
+    setSyncMessage(null);
+    try {
+      const result = await GoogleSheetService.syncAllBookingsToSheet(bookings);
+      if (result.success) {
+        setSyncMessage({
+          text: `Successfully synced ${result.count} bookings to your Google Sheet!`,
+          isError: false,
+        });
+      } else {
+        setSyncMessage({
+          text: result.error || "Failed to sync. Please ensure Google Sheet Webhook URL is set in Settings.",
+          isError: true,
+        });
+      }
+    } catch (err: any) {
+      setSyncMessage({
+        text: err.message || "An error occurred during sync.",
+        isError: true,
+      });
+    } finally {
+      setSyncingSheet(false);
+      setTimeout(() => setSyncMessage(null), 6000);
+    }
+  };
+
   const filteredBookings = bookings.filter((b) => {
     const matchesSearch =
       b.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,14 +112,48 @@ export default function AdminBookingsPage() {
           </h1>
         </div>
 
-        <button
-          onClick={exportCSV}
-          className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-5 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow border border-[#C89D45]/40"
-        >
-          <Download className="w-4 h-4 text-[#C89D45]" />
-          <span>Export CSV Report</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleSyncSheet}
+            disabled={syncingSheet || bookings.length === 0}
+            className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow border border-emerald-500/40 transition-all"
+            title="Sync all current bookings into your connected Google Sheet"
+          >
+            {syncingSheet ? (
+              <RefreshCw className="w-4 h-4 text-[#C89D45] animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-[#C89D45]" />
+            )}
+            <span>{syncingSheet ? "Syncing..." : "Sync with Google Sheet"}</span>
+          </button>
+
+          <button
+            onClick={exportCSV}
+            className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-5 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow border border-[#C89D45]/40"
+          >
+            <Download className="w-4 h-4 text-[#C89D45]" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
+
+      {/* SYNC NOTIFICATION BANNER */}
+      {syncMessage && (
+        <div
+          className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in ${
+            syncMessage.isError
+              ? "bg-red-950/80 border-red-500/50 text-red-200"
+              : "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
+          }`}
+        >
+          {syncMessage.isError ? (
+            <XCircle className="w-5 h-5 text-red-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          )}
+          <span>{syncMessage.text}</span>
+        </div>
+      )}
 
       {/* FILTERS & SEARCH */}
       <div className="bg-[#2C2473] rounded-2xl p-4 border border-[#C89D45]/30 flex flex-col sm:flex-row items-center justify-between gap-4">

@@ -26,27 +26,34 @@ const BLANK_PROP: Omit<StoreProperty, "id"> = {
 const blankRoom = (propertyId: string, location: string): Omit<StoreRoom, "id" | "slug"> => ({
   propertyId,
   title: "",
-  type: "Deluxe Suite",
-  pricePerNight: 4500,
-  capacity: 2,
+  type: "Deluxe Room",
+  floor: "Ground Floor",
+  pricePerNight: 1550,
+  standardPricePerPax: 1550,
+  premiumPricePerPax: 2100,
+  minCapacity: 2,
+  capacity: 4,
   quantity: 1,
   bedType: "King Bed",
   view: "Kanchenjunga Peak View",
-  size: "380 sq ft",
+  size: "360 sq ft",
   location,
   description: "",
-  amenities: ["Breakfast Included", "Free WiFi", "Geyser"],
+  amenities: ["Fooding & Lodging Included", "All 4 Meals Included", "Free WiFi", "Geyser"],
   images: [],
   featured: true,
   available: true,
 });
 
 const ROOM_TYPES = [
-  "Deluxe Suite", "Family Suite", "Couple Room",
-  "Standard Room", "Premium Suite", "Dormitory",
+  "Deluxe Room", "Deluxe Family Room", "Deluxe Suite",
+  "Family Suite", "Couple Room", "Standard Room", "Premium Suite", "Dormitory",
 ];
+const FLOOR_OPTIONS = ["Ground Floor", "First Floor"];
 const BED_TYPES = [
   "King Bed", "Queen Bed", "Twin Beds",
+  "King Bed + Extra Bed Option", "2 King Beds + Daybed Seating",
+  "King Bed + Balcony Setup", "2 King Beds + Balcony Sitting",
   "King Bed + Plush Daybed", "2 Queen Beds + Sofa Sitting",
   "Queen Canopy Bed", "Bunk Beds",
 ];
@@ -388,13 +395,27 @@ export default function AdminRoomsPage() {
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                       unoptimized={room.images?.[0]?.startsWith("data:")}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <span className="absolute top-3 right-3 bg-[#C62828] text-white text-[10px] font-accent font-bold px-3 py-1 rounded-full shadow">
-                      {formatPrice(room.pricePerNight)} / Night
-                    </span>
-                    <span className="absolute top-3 left-3 bg-black/60 text-[#C89D45] text-[9px] font-accent font-bold px-2.5 py-1 rounded-full border border-[#C89D45]/30 uppercase tracking-wider">
-                      {room.type}
-                    </span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                      <span className="bg-[#C62828] text-white text-[10px] font-accent font-bold px-2.5 py-1 rounded-full shadow border border-[#C89D45]/40">
+                        ₹{room.standardPricePerPax || room.pricePerNight} / pax
+                      </span>
+                      <span className="text-[8px] font-accent uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+                        Fooding &amp; Lodging
+                      </span>
+                    </div>
+
+                    <div className="absolute top-3 left-3 flex flex-col gap-1">
+                      <span className="bg-black/70 text-[#C89D45] text-[9px] font-accent font-bold px-2.5 py-1 rounded-full border border-[#C89D45]/30 uppercase tracking-wider w-fit">
+                        {room.type}
+                      </span>
+                      {room.floor && (
+                        <span className="bg-[#2C2473]/90 text-[#F3D27A] text-[8px] font-accent font-bold px-2 py-0.5 rounded-full border border-[#C89D45]/30 uppercase tracking-wider w-fit">
+                          {room.floor}
+                        </span>
+                      )}
+                    </div>
+
                     {/* Quantity badge */}
                     <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/70 border border-[#C89D45]/40 text-[#C89D45] text-[10px] font-accent font-bold px-2 py-1 rounded-full">
                       <Hash className="w-2.5 h-2.5" /> {room.quantity ?? 1} unit{(room.quantity ?? 1) !== 1 ? "s" : ""}
@@ -402,12 +423,27 @@ export default function AdminRoomsPage() {
                   </div>
 
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-1.5">
-                      <h3 className="font-serif text-base font-bold text-white leading-tight">{room.title}</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-serif text-base font-bold text-white leading-tight">{room.title}</h3>
+                      </div>
                       <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{room.description}</p>
-                      <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-400 pt-2 border-t border-white/10">
+
+                      {/* Package tariffs pill box */}
+                      <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 grid grid-cols-2 gap-2 text-[10px]">
+                        <div>
+                          <span className="text-gray-400 uppercase font-bold block">Standard:</span>
+                          <span className="font-bold text-white">₹{room.standardPricePerPax || room.pricePerNight} <span className="font-normal text-gray-400 text-[9px]">/ pax</span></span>
+                        </div>
+                        <div className="border-l border-white/10 pl-2">
+                          <span className="text-[#C89D45] uppercase font-bold block">Premium:</span>
+                          <span className="font-bold text-[#F3D27A]">₹{room.premiumPricePerPax || (room.pricePerNight + 550)} <span className="font-normal text-gray-400 text-[9px]">/ pax</span></span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-400 pt-1">
                         <span className="flex items-center gap-1"><BedDouble className="w-3 h-3 text-[#C89D45]" /> {room.bedType}</span>
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3 text-[#C89D45]" /> Up to {room.capacity}</span>
+                        <span className="flex items-center gap-1"><Users className="w-3 h-3 text-[#C89D45]" /> {room.minCapacity ? `${room.minCapacity} – ${room.capacity} Pax` : `Up to ${room.capacity}`}</span>
                       </div>
                     </div>
 
@@ -646,33 +682,74 @@ export default function AdminRoomsPage() {
                 />
               </div>
 
-              {/* Type + Bed */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Room Type", key: "type" as const,    opts: ROOM_TYPES },
-                  { label: "Bed Type",  key: "bedType" as const, opts: BED_TYPES  },
-                ].map(({ label, key, opts }) => (
-                  <div key={key}>
-                    <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">{label}</label>
-                    <select value={roomForm[key] as string} onChange={(e) => rf(key, e.target.value as never)}
-                      className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors">
-                      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                ))}
+              {/* Type + Floor + Bed */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Room Type</label>
+                  <select value={roomForm.type} onChange={(e) => rf("type", e.target.value)}
+                    className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors">
+                    {ROOM_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Floor Level</label>
+                  <select value={roomForm.floor || "Ground Floor"} onChange={(e) => rf("floor", e.target.value)}
+                    className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors">
+                    {FLOOR_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Bed Configuration</label>
+                  <select value={roomForm.bedType} onChange={(e) => rf("bedType", e.target.value)}
+                    className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors">
+                    {BED_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
               </div>
 
-              {/* Price + Guests + Quantity + Size */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Package Tariffs (Fooding & Lodging per Pax per Day) */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-[#C89D45]/30 space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <span className="text-xs font-accent uppercase text-[#C89D45] font-bold">
+                    Official Fooding &amp; Lodging Tariffs (Per Pax / Day)
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40">
+                    All 4 Meals
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] uppercase text-gray-300 font-bold block mb-1">Standard Package (₹ / pax / day)</label>
+                    <input type="number" min={500} value={roomForm.standardPricePerPax || roomForm.pricePerNight}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        rf("standardPricePerPax", val);
+                        rf("pricePerNight", val);
+                      }}
+                      className="w-full bg-black/50 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase text-[#C89D45] font-bold block mb-1">Premium Package (₹ / pax / day)</label>
+                    <input type="number" min={500} value={roomForm.premiumPricePerPax || 2100}
+                      onChange={(e) => rf("premiumPricePerPax", Number(e.target.value))}
+                      className="w-full bg-black/50 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-[#F3D27A] focus:border-[#C89D45] focus:outline-none transition-colors font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Accommodation Capacity + Quantity + Size */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Price / Night (₹)</label>
-                  <input type="number" min={500} value={roomForm.pricePerNight}
-                    onChange={(e) => rf("pricePerNight", Number(e.target.value))}
+                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Min Pax</label>
+                  <input type="number" min={1} max={20} value={roomForm.minCapacity || 2}
+                    onChange={(e) => rf("minCapacity", Number(e.target.value))}
                     className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Max Guests</label>
+                  <label className="text-xs uppercase text-[#C89D45] font-bold block mb-1">Max Pax Capacity</label>
                   <input type="number" min={1} max={20} value={roomForm.capacity}
                     onChange={(e) => rf("capacity", Number(e.target.value))}
                     className="w-full bg-black/40 border border-[#C89D45]/30 rounded-xl p-2.5 text-xs text-white focus:border-[#C89D45] focus:outline-none transition-colors"

@@ -20,8 +20,16 @@ import {
   Bed,
   Layers,
   AlertTriangle,
+  FileSpreadsheet,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+  Send,
+  HelpCircle,
 } from "lucide-react";
 import { PanelLockService, type AdminPanelLockConfig } from "@/services/panel-lock.service";
+import { GoogleSheetService } from "@/services/google-sheet.service";
+import { SettingsService } from "@/services/settings.service";
 
 const ADMIN_MENU_ITEMS = [
   { id: "dashboard", name: "Dashboard Overview", href: "/admin", icon: LayoutDashboard },
@@ -34,6 +42,76 @@ const ADMIN_MENU_ITEMS = [
   { id: "enquiries", name: "Customer Enquiries", href: "/admin/enquiries", icon: Inbox },
   { id: "settings", name: "Website Settings", href: "/admin/settings", icon: Settings },
 ];
+
+const APPS_SCRIPT_CODE = `/**
+ * LOTUS PARADISE HOMESTAY — GOOGLE SHEETS LIVE BOOKING AUTOMATION
+ * Paste this code into: Extensions > Apps Script in your Google Sheet, then Deploy as Web app.
+ */
+const SHEET_NAME = "Bookings";
+const HEADERS = ["Timestamp", "Booking ID", "Guest Name", "Phone Number", "Email", "Room Suite", "Check-In", "Check-Out", "Nights", "Guests", "Total Amount (₹)", "Booking Status", "Special Requests"];
+
+function getOrCreateSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS);
+    const hr = sheet.getRange(1, 1, 1, HEADERS.length);
+    hr.setBackground("#2C2473").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    sheet.setRowHeight(1, 35);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function formatRow(sheet, rowIdx) {
+  const r = sheet.getRange(rowIdx, 1, 1, HEADERS.length);
+  r.setFontFamily("Arial").setFontSize(9).setVerticalAlignment("middle");
+  sheet.getRange(rowIdx, 1).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 2).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 7).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 8).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 9).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 10).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 11).setHorizontalAlignment("right").setNumberFormat("₹#,##0");
+  sheet.getRange(rowIdx, 12).setHorizontalAlignment("center");
+  const sc = sheet.getRange(rowIdx, 12);
+  const sv = String(sc.getValue()).toUpperCase();
+  if (sv === "CONFIRMED") sc.setBackground("#E8F5E9").setFontColor("#2E7D32").setFontWeight("bold");
+  else if (sv === "PENDING") sc.setBackground("#FFF8E1").setFontColor("#F57F17").setFontWeight("bold");
+  else if (sv === "CANCELLED") sc.setBackground("#FFEBEE").setFontColor("#C62828").setFontWeight("bold");
+}
+
+function rowFromBooking(b) {
+  return [b.createdAt || new Date().toLocaleString("en-IN"), b.bookingNumber || "N/A", b.guestName || "Guest", b.phone || "N/A", b.email || "N/A", b.roomTitle || "Suite", b.checkIn || "", b.checkOut || "", b.nights || 1, b.guestsCount || 1, Number(b.totalAmount || 0), (b.status || "CONFIRMED").toUpperCase(), b.specialRequests || "None"];
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = getOrCreateSheet();
+    if ((data.action === "reset_and_sync" || data.action === "clear_and_sync") && Array.isArray(data.bookings)) {
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+      data.bookings.forEach(function(b) { sheet.appendRow(rowFromBooking(b)); formatRow(sheet, sheet.getLastRow()); });
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === "batch_sync" && Array.isArray(data.bookings)) {
+      data.bookings.forEach(function(b) { sheet.appendRow(rowFromBooking(b)); formatRow(sheet, sheet.getLastRow()); });
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length })).setMimeType(ContentService.MimeType.JSON);
+    }
+    const b = data.booking || data;
+    sheet.appendRow(rowFromBooking(b));
+    formatRow(sheet, sheet.getLastRow());
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Booking recorded" })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput("Lotus Paradise Booking Automation Webhook is ACTIVE!");
+}`;
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState({
@@ -60,6 +138,14 @@ export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [lockSaved, setLockSaved] = useState(false);
 
+  // Google Sheets state
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [testingSheet, setTestingSheet] = useState(false);
+  const [savingSheet, setSavingSheet] = useState(false);
+  const [sheetResult, setSheetResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+
   useEffect(() => {
     // Load existing settings if saved in localStorage
     try {
@@ -74,7 +160,51 @@ export default function AdminSettingsPage() {
     // Load Panel Lock Config
     const config = PanelLockService.getConfig();
     setLockConfig(config);
+    PanelLockService.loadFromFirestore().then((c) => {
+      if (c) setLockConfig(c);
+    });
+
+    // Load Google Sheet URL
+    GoogleSheetService.getWebhookUrl().then((url) => {
+      if (url) setSheetUrl(url);
+    });
   }, []);
+
+  const handleSaveSheetUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSheet(true);
+    try {
+      const trimmed = sheetUrl.trim();
+      localStorage.setItem("lp_google_sheet_url", trimmed);
+      await SettingsService.updateGeneralSettings({
+        googleSheetWebhookUrl: trimmed,
+      });
+      setSheetResult({ success: true, message: "Google Sheet Webhook URL saved successfully!" });
+    } catch (err: any) {
+      setSheetResult({ success: false, message: err.message || "Failed to save URL" });
+    } finally {
+      setSavingSheet(false);
+      setTimeout(() => setSheetResult(null), 5000);
+    }
+  };
+
+  const handleTestSheetConnection = async () => {
+    if (!sheetUrl.trim()) {
+      setSheetResult({ success: false, message: "Please enter your Google Apps Script Web App URL first." });
+      return;
+    }
+    setTestingSheet(true);
+    setSheetResult(null);
+    const res = await GoogleSheetService.testConnection(sheetUrl.trim());
+    setSheetResult(res);
+    setTestingSheet(false);
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(APPS_SCRIPT_CODE);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 3000);
+  };
 
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,9 +217,9 @@ export default function AdminSettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  const handleSaveLockConfig = (e: React.FormEvent) => {
+  const handleSaveLockConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    PanelLockService.saveConfig(lockConfig);
+    await PanelLockService.saveConfig(lockConfig);
     setLockSaved(true);
     setTimeout(() => setLockSaved(false), 3000);
   };
@@ -336,7 +466,160 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          2. GENERAL WEBSITE & CONTACT SETTINGS
+          2. GOOGLE SHEETS LIVE BOOKING AUTOMATION
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-[#2C2473] rounded-3xl p-6 md:p-8 border-2 border-emerald-500/60 shadow-2xl space-y-6 relative overflow-hidden">
+        {/* Background glow badge */}
+        <div
+          className="absolute -top-24 -right-24 w-60 h-60 rounded-full pointer-events-none opacity-20"
+          style={{ background: "radial-gradient(circle, #10B981, transparent)" }}
+        />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[10px] font-accent uppercase tracking-widest text-[#C89D45] font-bold block">
+                Direct Spreadsheet Automation
+              </span>
+              <h3 className="font-serif text-2xl font-bold text-white flex items-center gap-2">
+                <span>Google Sheets Booking Sync</span>
+                {sheetUrl ? (
+                  <span className="text-[10px] font-accent font-bold px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3" /> CONNECTED
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-accent font-bold px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
+                    SETUP REQUIRED
+                  </span>
+                )}
+              </h3>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/40 border border-white/20 text-xs font-accent font-bold text-gray-300 hover:text-white hover:border-[#C89D45] transition-all"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#C89D45]" />
+            <span>{showInstructions ? "Hide Setup Guide" : "View Setup Guide"}</span>
+          </button>
+        </div>
+
+        {/* Status Message */}
+        {sheetResult && (
+          <div
+            className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in ${
+              sheetResult.success
+                ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
+                : "bg-red-950/80 border-red-500/50 text-red-200"
+            }`}
+          >
+            {sheetResult.success ? (
+              <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+            )}
+            <span>{sheetResult.message}</span>
+          </div>
+        )}
+
+        {/* Setup Instructions Box */}
+        {showInstructions && (
+          <div className="bg-black/50 border border-[#C89D45]/40 rounded-2xl p-5 space-y-4 text-xs animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h4 className="font-accent uppercase font-bold text-[#C89D45] text-xs flex items-center gap-2">
+                <span>Quick 4-Step Google Sheet Setup</span>
+              </h4>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-3 py-1 rounded-lg font-accent text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow"
+              >
+                {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-[#C89D45]" />}
+                <span>{copiedCode ? "Copied!" : "Copy Apps Script Code"}</span>
+              </button>
+            </div>
+
+            <ol className="space-y-2 list-decimal list-inside text-gray-300 leading-relaxed">
+              <li>
+                Open <a href="https://sheets.new" target="_blank" rel="noreferrer" className="text-[#C89D45] underline font-bold inline-flex items-center gap-0.5">Google Sheets <ExternalLink className="w-2.5 h-2.5" /></a> and create a new spreadsheet named <strong>&quot;Lotus Paradise Bookings&quot;</strong>.
+              </li>
+              <li>
+                In the Google Sheet top menu, go to <strong>Extensions &gt; Apps Script</strong>.
+              </li>
+              <li>
+                Delete any existing code in the editor, click <strong>&quot;Copy Apps Script Code&quot;</strong> button above, paste it in the editor, and click the <strong>Save</strong> icon.
+              </li>
+              <li>
+                Click the blue <strong>Deploy &gt; New deployment</strong> button (top right). Choose type <strong>Web app</strong>. Set <em>Execute as: <strong>Me</strong></em> and <em>Who has access: <strong>Anyone</strong></em>. Click <strong>Deploy</strong>, authorize permissions, and copy the generated <strong>Web app URL</strong>.
+              </li>
+            </ol>
+
+            <div className="pt-2">
+              <span className="text-[10px] text-gray-400 font-mono block mb-1">
+                Apps Script automatically writes the following columns with custom styling:
+              </span>
+              <p className="text-[11px] font-mono text-[#F3D27A] bg-black/70 p-2 rounded-lg border border-white/10 overflow-x-auto">
+                Timestamp | Booking ID | Guest Name | Phone | Email | Room Suite | Check-In | Check-Out | Nights | Guests | Total Amount | Status | Special Requests
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Webhook Form */}
+        <form onSubmit={handleSaveSheetUrl} className="space-y-4">
+          <div>
+            <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1.5">
+              Google Apps Script Web App URL
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="url"
+                required
+                placeholder="https://script.google.com/macros/s/AKfycbx.../exec"
+                value={sheetUrl}
+                onChange={(e) => setSheetUrl(e.target.value)}
+                className="flex-1 bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-[#C89D45]"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={savingSheet}
+                  className="bg-[#C62828] hover:bg-[#8B1E1E] disabled:opacity-50 text-white px-5 py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow transition-all border border-[#C89D45]/40 shrink-0"
+                >
+                  <Save className="w-3.5 h-3.5 text-[#C89D45]" />
+                  <span>{savingSheet ? "Saving..." : "Save URL"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTestSheetConnection}
+                  disabled={testingSheet || !sheetUrl}
+                  className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow transition-all border border-emerald-500/40 shrink-0"
+                  title="Send a test ping row to your Google Sheet"
+                >
+                  {testingSheet ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-[#C89D45] animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5 text-[#C89D45]" />
+                  )}
+                  <span>{testingSheet ? "Testing..." : "Test Connection"}</span>
+                </button>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Every direct reservation confirmed on the website will be instantly appended as a formatted row in your Google Sheet.
+            </p>
+          </div>
+        </form>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          3. GENERAL WEBSITE & CONTACT SETTINGS
       ══════════════════════════════════════════════════════════════════════ */}
       {saved && (
         <div className="bg-emerald-600/30 border border-emerald-500 text-emerald-200 p-4 rounded-2xl flex items-center gap-2">
