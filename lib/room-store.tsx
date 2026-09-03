@@ -7,7 +7,15 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { ROOMS, type RoomData } from "@/lib/data";
+import { IdbStorage } from "@/lib/idb-storage";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+} from "firebase/firestore";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -64,14 +72,11 @@ interface RoomStoreCtx {
 
 const RoomStoreContext = createContext<RoomStoreCtx | null>(null);
 
-const PROP_KEY = "lp_properties_v1";
-const ROOM_KEY = "lp_room_store_v3";
-
-// Images / data updated in Firebase are guaranteed visible within this window.
-const MAX_CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
+const PROP_KEY = "lp_properties_v2";
+const ROOM_KEY = "lp_room_store_v4";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SEED DATA
+// SEED DATA (EXACT CURRENT PROPERTIES & ROOMS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_PROPERTIES: StoreProperty[] = [
@@ -82,200 +87,275 @@ const DEFAULT_PROPERTIES: StoreProperty[] = [
     mapLink: "https://maps.google.com/?q=Latpanchar+Darjeeling+West+Bengal",
     description:
       "Our flagship mountain homestay nestled at 4,500 ft inside Mahananda Wildlife Sanctuary, offering panoramic Kanchenjunga views.",
-    coverImage: "/images/hero/bengal-latpanchar.jpg.jpeg",
+    coverImage: "/images/properties/hotel_night.jpeg",
+    images: [
+      "/images/properties/hotel_night.jpeg",
+      "/images/hero/512706723_2775845722805003_4817204501185083117_n.jpg.jpeg",
+      "/images/hero/b.jpg.jpg.jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.34 PM.jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.36 PM.jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.36 PM (1).jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.37 PM.jpeg",
+      "/images/properties/ChatGPT Image Aug 4, 2026, 11_21_47 PM.png",
+      "/images/properties/ChatGPT Image Aug 4, 2026, 11_59_03 PM.png",
+    ],
   },
   {
     id: "prop-2",
-    name: "Lotus Paradise — Sittong",
-    location: "Sittong, Darjeeling",
-    mapLink: "https://maps.google.com/?q=Sittong+Orange+Valley+Darjeeling",
+    name: "Chu & Isultim",
+    location: "North Bengal",
+    mapLink: "https://maps.google.com/?q=Latpanchar+Sittong+North+Bengal",
     description:
-      "A serene colonial retreat amid the famous orange orchards of Sittong Valley, Darjeeling district.",
-    coverImage: "/images/hero/latpanchar-dawaipani-tour-packages.jpg",
+      "A serene Himalayan haven offering colonial charm, breathtaking Kanchenjunga panoramas, and authentic mountain hospitality.",
+    coverImage: "/images/properties/WhatsApp Image 2026-08-04 at 11.06.37 PM (1).jpeg",
+    images: [
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.37 PM (1).jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.34 PM.jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.36 PM.jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.36 PM (1).jpeg",
+      "/images/properties/WhatsApp Image 2026-08-04 at 11.06.37 PM.jpeg",
+      "/images/hero/512706723_2775845722805003_4817204501185083117_n.jpg.jpeg",
+      "/images/hero/b.jpg.jpg.jpeg",
+      "/images/hero/13.jpg.jpeg",
+      "/images/properties/ChatGPT Image Aug 4, 2026, 11_21_47 PM.png",
+      "/images/properties/ChatGPT Image Aug 4, 2026, 11_59_03 PM.png",
+      "/images/hero/himalayan-horizon-view.jpeg",
+      "/images/hero/ChatGPT Image Aug 4, 2026, 11_29_35 PM.png",
+      "/images/rooms/room1.jpg",
+      "/images/rooms/room2.jpg",
+      "/images/rooms/room3.jpg",
+      "/images/rooms/room4.jpeg",
+      "/images/properties/hotel_night.jpeg",
+      "/images/hero/mahananda-wildlife-sanctuary-siliguri2-attr-hero.jpe",
+      "/images/hero/bengal-latpanchar.jpg.jpeg",
+    ],
   },
 ];
 
-function seedRooms(properties: StoreProperty[]): StoreRoom[] {
-  const propMap: Record<string, string> = {};
-  properties.forEach((p) => {
-    propMap[p.location] = p.id;
-  });
-
-  return ROOMS.map((r: RoomData) => ({
-    id: r.id,
-    propertyId: propMap[r.location] ?? properties[0]?.id ?? "prop-1",
-    title: r.title,
-    slug: r.slug,
-    type: r.type,
-    pricePerNight: r.pricePerNight,
-    capacity: r.capacity,
+const DEFAULT_ROOMS: StoreRoom[] = [
+  {
+    id: "room-1",
+    propertyId: "prop-1",
+    title: "Deluxe Mountain View Suite",
+    slug: "deluxe-mountain-view-suite",
+    type: "Deluxe Suite",
+    pricePerNight: 4500,
+    capacity: 2,
     quantity: 1,
-    bedType: r.bedType,
-    view: r.view,
-    size: r.size,
-    location: r.location,
-    description: r.description,
-    amenities: r.amenities,
-    images: r.images,
-    featured: r.featured,
+    bedType: "King Bed",
+    view: "Panoramic Kanchenjunga & Forest Valley View",
+    size: "380 sq ft",
+    location: "Latpanchar, North Bengal",
+    description:
+      "Our signature deluxe suite features private teak wood veranda overlooking the snow-capped Himalayan ranges, bespoke hand-carved furnishings, electric blanket warming, and attached marble bathroom with instant geyser.",
+    amenities: [
+      "Kanchenjunga Balcony",
+      "Complimentary Gourmet Breakfast",
+      "High-Speed WiFi",
+      "Electric Kettle & Herbal Teas",
+      "Electric Bed Warmer",
+      "Geyser & Organic Toiletries",
+    ],
+    images: [
+      "/images/rooms/room1.jpg",
+      "/images/rooms/room2.jpg",
+    ],
+    featured: true,
     available: true,
-  }));
-}
+  },
+  {
+    id: "room-2",
+    propertyId: "prop-1",
+    title: "Kanchenjunga Grand Deluxe Suite",
+    slug: "kanchenjunga-grand-deluxe-suite",
+    type: "Premium Suite",
+    pricePerNight: 5500,
+    capacity: 3,
+    quantity: 1,
+    bedType: "King Bed + Plush Daybed",
+    view: "Panoramic Kanchenjunga & Forest Valley View",
+    size: "440 sq ft",
+    location: "Latpanchar, North Bengal",
+    description:
+      "A grand mountain suite with 180-degree unobstructed sunrise views, luxury daybed, and authentic colonial decor.",
+    amenities: [
+      "Panoramic Sunrise Veranda",
+      "Complimentary Gourmet Breakfast",
+      "High-Speed WiFi",
+      "Electric Kettle & Darjeeling Tea",
+      "Electric Bed Warmer",
+      "Instant Hot Geyser",
+    ],
+    images: [
+      "/images/rooms/room2.jpg",
+      "/images/rooms/room3.jpg",
+    ],
+    featured: true,
+    available: true,
+  },
+  {
+    id: "room-3",
+    propertyId: "prop-1",
+    title: "Heritage Family Duplex Suite",
+    slug: "heritage-family-duplex-suite",
+    type: "Family Suite",
+    pricePerNight: 6500,
+    capacity: 5,
+    quantity: 1,
+    bedType: "2 Queen Beds + Sofa Sitting",
+    view: "Valley Garden & Pine Forest View",
+    size: "580 sq ft",
+    location: "Latpanchar, North Bengal",
+    description:
+      "Designed for families and groups seeking spacious comfort. Features two separate bedroom spaces, traditional wooden paneling, private seating lounge, and garden access.",
+    amenities: [
+      "Two Queen Beds",
+      "Garden Access Veranda",
+      "Complimentary Breakfast for 5",
+      "Free High-Speed WiFi",
+      "Geyser & Premium Toiletries",
+    ],
+    images: [
+      "/images/rooms/room3.jpg",
+      "/images/rooms/room4.jpeg",
+    ],
+    featured: true,
+    available: true,
+  },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROVIDER
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { IdbStorage } from "@/lib/idb-storage";
-
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
-
 export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
-  const [properties, setProperties] = useState<StoreProperty[]>([]);
-  const [rooms, setRooms] = useState<StoreRoom[]>([]);
+  const [properties, setProperties] = useState<StoreProperty[]>(DEFAULT_PROPERTIES);
+  const [rooms, setRooms] = useState<StoreRoom[]>(DEFAULT_ROOMS);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadData() {
+    // ── 1. Fast initial load from IDB / LocalStorage cache ────────────────
+    async function loadCached() {
       try {
-        // ── Step 1: Read cached data from IDB / localStorage ──────────────
         const propMeta = await IdbStorage.getWithMeta<StoreProperty[]>(PROP_KEY);
         const roomMeta = await IdbStorage.getWithMeta<StoreRoom[]>(ROOM_KEY);
 
-        let cachedProps: StoreProperty[] | null =
-          propMeta && Array.isArray(propMeta.data) && propMeta.data.length > 0
-            ? propMeta.data
-            : null;
-        let cachedRooms: StoreRoom[] | null =
-          roomMeta && Array.isArray(roomMeta.data) && roomMeta.data.length > 0
-            ? roomMeta.data
-            : null;
-
-        // Legacy localStorage fallback (for users who visited before this fix)
-        if (!cachedProps) {
-          const rawProps = IdbStorage.safeLocalGet(PROP_KEY);
-          if (rawProps) {
-            try { cachedProps = JSON.parse(rawProps); } catch {}
-          }
+        if (propMeta?.data && Array.isArray(propMeta.data) && propMeta.data.length > 0) {
+          if (isMounted) setProperties(propMeta.data);
         }
-        if (!cachedRooms) {
-          const rawRooms = IdbStorage.safeLocalGet(ROOM_KEY);
-          if (rawRooms) {
-            try { cachedRooms = JSON.parse(rawRooms); } catch {}
-          }
-        }
-
-        // Check whether the cached data is stale
-        const propAge = propMeta ? Date.now() - propMeta.syncedAt : Infinity;
-        const roomAge = roomMeta ? Date.now() - roomMeta.syncedAt : Infinity;
-        const propStale = propAge > MAX_CACHE_AGE_MS;
-        const roomStale = roomAge > MAX_CACHE_AGE_MS;
-
-        // ── Step 2: Populate state immediately with whatever we have ──────
-        const initialProps = cachedProps && cachedProps.length > 0
-          ? cachedProps
-          : DEFAULT_PROPERTIES;
-        const initialRooms = cachedRooms && cachedRooms.length > 0
-          ? cachedRooms
-          : seedRooms(initialProps);
-
-        if (isMounted) {
-          setProperties(initialProps);
-          setRooms(initialRooms);
-          setHydrated(true);
-        }
-
-        // ── Step 3: Fetch from Firestore ──────────────────────────────────
-        // If cache is stale (or empty), we MUST refresh from Firestore.
-        // If cache is fresh, we still do a background refresh so the *next*
-        // page load picks up any changes made by the admin.
-        const shouldFetchProps = propStale || !cachedProps;
-        const shouldFetchRooms = roomStale || !cachedRooms;
-
-        if (shouldFetchProps || shouldFetchRooms) {
-          try {
-            const [propsSnap, roomsSnap] = await Promise.all([
-              getDocs(collection(db, "properties")),
-              getDocs(collection(db, "rooms")),
-            ]);
-
-            if (propsSnap && !propsSnap.empty && isMounted) {
-              const firestoreProps = propsSnap.docs.map(
-                (d) => ({ id: d.id, ...d.data() } as StoreProperty)
-              );
-              setProperties(firestoreProps);
-              await IdbStorage.setWithMeta(PROP_KEY, firestoreProps);
-              IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(firestoreProps));
-            } else if (propsSnap && propsSnap.empty) {
-              for (const p of DEFAULT_PROPERTIES) {
-                await setDoc(doc(db, "properties", p.id), p);
-              }
-            }
-
-            if (roomsSnap && !roomsSnap.empty && isMounted) {
-              const firestoreRooms = roomsSnap.docs.map(
-                (d) => ({ id: d.id, ...d.data() } as StoreRoom)
-              );
-              setRooms(firestoreRooms);
-              await IdbStorage.setWithMeta(ROOM_KEY, firestoreRooms);
-              IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(firestoreRooms));
-            } else if (roomsSnap && roomsSnap.empty) {
-              const defaultRooms = seedRooms(DEFAULT_PROPERTIES);
-              for (const r of defaultRooms) {
-                await setDoc(doc(db, "rooms", r.id), r);
-              }
-            }
-          } catch (fErr) {
-            console.warn("Firestore sync warning (using cached data):", fErr);
-          }
+        if (roomMeta?.data && Array.isArray(roomMeta.data) && roomMeta.data.length > 0) {
+          if (isMounted) setRooms(roomMeta.data);
         }
       } catch (err) {
-        console.error("RoomStore loading error:", err);
-        if (isMounted) {
-          setProperties(DEFAULT_PROPERTIES);
-          setRooms(seedRooms(DEFAULT_PROPERTIES));
-          setHydrated(true);
-        }
+        console.warn("Error loading cached properties/rooms:", err);
+      } finally {
+        if (isMounted) setHydrated(true);
       }
     }
 
-    loadData();
+    loadCached();
+
+    // ── 2. Real-time Firestore Listeners (Ensures live Firestore sync) ─────
+    let unsubProps: (() => void) | undefined;
+    let unsubRooms: (() => void) | undefined;
+
+    try {
+      unsubProps = onSnapshot(
+        collection(db, "properties"),
+        (snapshot) => {
+          if (!snapshot.empty && isMounted) {
+            const firestoreProps = snapshot.docs.map(
+              (d) => ({ id: d.id, ...d.data() } as StoreProperty)
+            );
+            // Sort by order/id if needed
+            setProperties(firestoreProps);
+            IdbStorage.setWithMeta(PROP_KEY, firestoreProps).catch(() => {});
+            IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(firestoreProps));
+          } else if (snapshot.empty) {
+            // Auto-seed Firestore if completely empty
+            for (const p of DEFAULT_PROPERTIES) {
+              setDoc(doc(db, "properties", p.id), p).catch(console.error);
+            }
+          }
+        },
+        (error) => {
+          console.warn("Firestore properties listener warning:", error);
+        }
+      );
+
+      unsubRooms = onSnapshot(
+        collection(db, "rooms"),
+        (snapshot) => {
+          if (!snapshot.empty && isMounted) {
+            const firestoreRooms = snapshot.docs.map(
+              (d) => ({ id: d.id, ...d.data() } as StoreRoom)
+            );
+            setRooms(firestoreRooms);
+            IdbStorage.setWithMeta(ROOM_KEY, firestoreRooms).catch(() => {});
+            IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(firestoreRooms));
+          } else if (snapshot.empty) {
+            // Auto-seed Firestore rooms if empty
+            for (const r of DEFAULT_ROOMS) {
+              setDoc(doc(db, "rooms", r.id), r).catch(console.error);
+            }
+          }
+        },
+        (error) => {
+          console.warn("Firestore rooms listener warning:", error);
+        }
+      );
+    } catch (err) {
+      console.warn("Firestore subscription error:", err);
+    }
 
     return () => {
       isMounted = false;
+      if (unsubProps) unsubProps();
+      if (unsubRooms) unsubRooms();
     };
   }, []);
 
-  // Persist to IDB and localStorage whenever state changes (post-hydration)
-  useEffect(() => {
-    if (hydrated) {
-      IdbStorage.setWithMeta(PROP_KEY, properties);
-      IdbStorage.safeLocalSet(PROP_KEY, JSON.stringify(properties));
-    }
-  }, [properties, hydrated]);
+  // ── Document size sanitization for Firestore (1MB limit protection) ────
 
-  useEffect(() => {
-    if (hydrated) {
-      IdbStorage.setWithMeta(ROOM_KEY, rooms);
-      IdbStorage.safeLocalSet(ROOM_KEY, JSON.stringify(rooms));
-    }
-  }, [rooms, hydrated]);
+  function sanitizePropertyForFirestore(p: Partial<StoreProperty>): Record<string, any> {
+    const payload: Record<string, any> = { ...p };
+    try {
+      let raw = JSON.stringify(payload);
+      if (raw.length > 700 * 1024 && Array.isArray(payload.images)) {
+        const trimmed = [...payload.images];
+        while (trimmed.length > 1 && JSON.stringify({ ...payload, images: trimmed }).length > 650 * 1024) {
+          trimmed.pop();
+        }
+        payload.images = trimmed;
+      }
+    } catch {}
+    return payload;
+  }
+
+  function sanitizeRoomForFirestore(r: Partial<StoreRoom>): Record<string, any> {
+    const payload: Record<string, any> = { ...r };
+    try {
+      let raw = JSON.stringify(payload);
+      if (raw.length > 700 * 1024 && Array.isArray(payload.images)) {
+        const trimmed = [...payload.images];
+        while (trimmed.length > 1 && JSON.stringify({ ...payload, images: trimmed }).length > 650 * 1024) {
+          trimmed.pop();
+        }
+        payload.images = trimmed;
+      }
+    } catch {}
+    return payload;
+  }
 
   // ── Property actions ─────────────────────────────────────────────────────
 
   const addProperty = useCallback((p: Omit<StoreProperty, "id">): StoreProperty => {
     const created: StoreProperty = { ...p, id: `prop-${Date.now()}` };
     setProperties((prev) => [...prev, created]);
-    setDoc(doc(db, "properties", created.id), created).catch(console.error);
+    const safePayload = sanitizePropertyForFirestore(created);
+    setDoc(doc(db, "properties", created.id), safePayload).catch(console.error);
     return created;
   }, []);
 
@@ -284,7 +364,8 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
       prev.map((p) => {
         if (p.id === id) {
           const updated = { ...p, ...data };
-          setDoc(doc(db, "properties", id), updated, { merge: true }).catch(console.error);
+          const safePayload = sanitizePropertyForFirestore(updated);
+          setDoc(doc(db, "properties", id), safePayload, { merge: true }).catch(console.error);
           return updated;
         }
         return p;
@@ -305,7 +386,8 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
     const slug = room.title.toLowerCase().replace(/\s+/g, "-");
     const created: StoreRoom = { ...room, id, slug };
     setRooms((prev) => [...prev, created]);
-    setDoc(doc(db, "rooms", id), created).catch(console.error);
+    const safePayload = sanitizeRoomForFirestore(created);
+    setDoc(doc(db, "rooms", id), safePayload).catch(console.error);
   }, []);
 
   const updateRoom = useCallback((id: string, data: Partial<StoreRoom>) => {
@@ -319,7 +401,8 @@ export function RoomStoreProvider({ children }: { children: React.ReactNode }) {
               ? data.title.toLowerCase().replace(/\s+/g, "-")
               : r.slug,
           };
-          setDoc(doc(db, "rooms", id), updated, { merge: true }).catch(console.error);
+          const safePayload = sanitizeRoomForFirestore(updated);
+          setDoc(doc(db, "rooms", id), safePayload, { merge: true }).catch(console.error);
           return updated;
         }
         return r;

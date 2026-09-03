@@ -48,13 +48,15 @@ async function getStoredGallery(): Promise<GalleryItem[]> {
   return DEFAULT_GALLERY;
 }
 
-async function updateCache(items: GalleryItem[]) {
+async function updateCache(items: GalleryItem[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     await IdbStorage.setWithMeta(GALLERY_STORAGE_KEY, items);
     // Keep legacy localStorage key in sync for any code that still reads it directly
     IdbStorage.safeLocalSet(GALLERY_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_gallery_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_gallery_updated"));
+    }
   } catch (err) {
     console.warn("Gallery cache update error:", err);
   }
@@ -71,14 +73,16 @@ export const GalleryService = {
       // Cache is fresh — return it immediately and kick off a silent background refresh
       const cachedItems = await getStoredGallery();
       // Background refresh so the *next* load is up-to-date
-      this._fetchFromFirestore(cachedItems).then(updateCache).catch(() => {});
+      this._fetchFromFirestore(cachedItems)
+        .then((fresh) => updateCache(fresh, false))
+        .catch(() => {});
       return cachedItems;
     }
 
     // Cache is stale (or empty) — fetch from Firestore first
     const localItems = await getStoredGallery();
     const fresh = await this._fetchFromFirestore(localItems);
-    await updateCache(fresh);
+    await updateCache(fresh, false);
     return fresh;
   },
 
@@ -101,10 +105,7 @@ export const GalleryService = {
           ...(docSnap.data() as Omit<GalleryItem, "id">),
         }));
 
-        // Keep items that only exist locally (offline-created)
-        const firestoreIds = new Set(firestoreItems.map((g) => g.id));
-        const localOnly = localItems.filter((g) => !firestoreIds.has(g.id));
-        return [...firestoreItems, ...localOnly];
+        return firestoreItems;
       } else if (snapshot && snapshot.empty) {
         // Auto-seed Firestore with defaults on first run
         for (const item of DEFAULT_GALLERY) {
@@ -131,7 +132,7 @@ export const GalleryService = {
     const updatedItem: GalleryItem = { ...target, ...updated, id };
 
     const nextItems = currentList.map((g) => (g.id === id ? updatedItem : g));
-    await updateCache(nextItems);
+    await updateCache(nextItems, true);
 
     try {
       await setDoc(doc(db, "gallery", id), updatedItem, { merge: true });
@@ -153,7 +154,7 @@ export const GalleryService = {
   async deleteItem(id: string): Promise<void> {
     const currentList = await getStoredGallery();
     const filtered = currentList.filter((g) => g.id !== id);
-    await updateCache(filtered);
+    await updateCache(filtered, true);
 
     try {
       await deleteDoc(doc(db, "gallery", id));
@@ -172,7 +173,7 @@ export const GalleryService = {
 
     const currentList = await getStoredGallery();
     const nextItems = [newItem, ...currentList];
-    await updateCache(nextItems);
+    await updateCache(nextItems, true);
 
     try {
       await setDoc(doc(db, "gallery", newId), newItem);

@@ -92,10 +92,11 @@ function PropertyCard({
   const [currentImgIndex, setCurrentImgIndex] = React.useState(0);
   const [isHovered, setIsHovered] = React.useState(false);
 
-  // All images: Cover image + property gallery images
+  // All images: Cover image + property gallery images (deduplicated)
   const allImages = React.useMemo(() => {
-    const list = [property.coverImage, ...(property.images || [])].filter(Boolean);
-    return list.length > 0 ? list : ["/images/hero/b.jpg.jpg.jpeg"];
+    const rawList = [property.coverImage, ...(property.images || [])].filter(Boolean);
+    const uniqueList = Array.from(new Set(rawList));
+    return uniqueList.length > 0 ? uniqueList : ["/images/hero/b.jpg.jpg.jpeg"];
   }, [property.coverImage, property.images]);
 
   // Auto-slide images every 3.5 seconds (pauses on hover)

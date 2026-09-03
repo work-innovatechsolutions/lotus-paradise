@@ -55,11 +55,13 @@ function getCachedLeads(): CorporateLeadData[] {
   return DEFAULT_LEADS;
 }
 
-function updateCache(items: CorporateLeadData[]) {
+function updateCache(items: CorporateLeadData[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     IdbStorage.safeLocalSet(CORP_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_corporate_leads_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_corporate_leads_updated"));
+    }
   } catch {}
 }
 
@@ -81,7 +83,7 @@ export const CorporateService = {
           ...docSnap.data(),
         })) as CorporateLeadData[];
 
-        updateCache(firestoreData);
+        updateCache(firestoreData, false);
         return firestoreData;
       }
     } catch (err) {
@@ -101,7 +103,7 @@ export const CorporateService = {
 
     const cached = getCachedLeads();
     const updated = [created, ...cached];
-    updateCache(updated);
+    updateCache(updated, true);
 
     (async () => {
       try {
@@ -128,7 +130,7 @@ export const CorporateService = {
 
     target.status = status;
     const nextList = cached.map((l) => (l.id === id ? { ...l, status } : l));
-    updateCache(nextList);
+    updateCache(nextList, true);
 
     (async () => {
       try {

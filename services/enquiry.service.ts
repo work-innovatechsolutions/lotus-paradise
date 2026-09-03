@@ -52,11 +52,13 @@ function getCachedEnquiries(): EnquiryData[] {
   return DEFAULT_ENQUIRIES;
 }
 
-function updateCache(items: EnquiryData[]) {
+function updateCache(items: EnquiryData[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     IdbStorage.safeLocalSet(ENQUIRY_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_enquiries_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_enquiries_updated"));
+    }
   } catch {}
 }
 
@@ -98,7 +100,7 @@ export const EnquiryService = {
 
     const cached = getCachedEnquiries();
     const updated = [newEnq, ...cached];
-    updateCache(updated);
+    updateCache(updated, true);
 
     (async () => {
       try {
@@ -121,7 +123,7 @@ export const EnquiryService = {
   async markAsRead(id: string): Promise<void> {
     const cached = getCachedEnquiries();
     const updated = cached.map((e) => (e.id === id ? { ...e, status: "READ" as const } : e));
-    updateCache(updated);
+    updateCache(updated, true);
 
     (async () => {
       try {
@@ -146,7 +148,7 @@ export const EnquiryService = {
     };
 
     const nextList = cached.map((e) => (e.id === id ? updated : e));
-    updateCache(nextList);
+    updateCache(nextList, true);
 
     (async () => {
       try {
@@ -162,7 +164,7 @@ export const EnquiryService = {
   async deleteEnquiry(id: string): Promise<void> {
     const cached = getCachedEnquiries();
     const updated = cached.filter((e) => e.id !== id);
-    updateCache(updated);
+    updateCache(updated, true);
 
     (async () => {
       try {

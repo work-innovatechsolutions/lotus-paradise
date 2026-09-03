@@ -1,4 +1,3 @@
-import { HERO_SLIDES } from "@/lib/data";
 import type { HeroSlide } from "@/types/hero";
 import { db } from "@/lib/firebase";
 import {
@@ -9,30 +8,46 @@ import {
   deleteDoc,
   query,
   orderBy,
+  onSnapshot,
 } from "firebase/firestore";
 import { IdbStorage } from "@/lib/idb-storage";
 
-const HERO_SLIDES_STORAGE_KEY = "lp_hero_slides_v2";
+const HERO_SLIDES_STORAGE_KEY = "lp_hero_slides_v3";
 
-// Images updated in Firebase are guaranteed visible within this window.
-const MAX_CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
-
-const DEFAULT_SLIDES: HeroSlide[] = HERO_SLIDES.map((s, idx) => ({
-  id: s.id,
-  title: s.title,
-  subtitle: s.subtitle,
-  location: s.location,
-  badge: s.badge,
-  desktopImage: s.image,
-  mobileImage: s.image,
-  video: "",
-  overlayOpacity: 0.5,
-  textAlignment: "left",
-  buttonText: "Book Your Stay",
-  buttonLink: "/booking",
-  active: true,
-  displayOrder: idx + 1,
-}));
+const DEFAULT_SLIDES: HeroSlide[] = [
+  {
+    id: "slide-1",
+    title: "New Himalayan Horizon",
+    subtitle: "A Luxury Mountain Retreat in Latpanchar, North Bengal",
+    location: "Latpanchar, Mahananda Wildlife Sanctuary (4,500 ft)",
+    badge: "Colonial Charm",
+    desktopImage: "/images/hero/himalayan-horizon-view.jpeg",
+    mobileImage: "/images/hero/himalayan-horizon-view.jpeg",
+    video: "",
+    overlayOpacity: 0.5,
+    textAlignment: "left",
+    buttonText: "Book Your Stay",
+    buttonLink: "/booking",
+    active: true,
+    displayOrder: 1,
+  },
+  {
+    id: "slide-3",
+    title: "Warm Bonfires Under Himalayan Skies",
+    subtitle: "Gather round the fire with hot local tea, acoustic tunes & starry nights",
+    location: "Latpanchar Garden Veranda",
+    badge: "Memorable Evenings",
+    desktopImage: "/images/hero/ChatGPT Image Aug 4, 2026, 11_29_35 PM.png",
+    mobileImage: "/images/hero/ChatGPT Image Aug 4, 2026, 11_29_35 PM.png",
+    video: "",
+    overlayOpacity: 0,
+    textAlignment: "left",
+    buttonText: "View Experiences",
+    buttonLink: "/experiences",
+    active: true,
+    displayOrder: 3,
+  },
+];
 
 // ── Cache helpers ────────────────────────────────────────────────────────────
 
@@ -43,7 +58,7 @@ function normaliseSlide(s: Partial<HeroSlide> & { overlayOpacity?: unknown }): H
   };
 }
 
-/** Read slides from IDB (includes syncedAt metadata). Returns null if nothing cached. */
+/** Read slides from IDB. Returns null if nothing cached. */
 async function getCachedSlides(): Promise<{ slides: HeroSlide[]; syncedAt: number } | null> {
   if (typeof window === "undefined") return null;
   try {
@@ -52,24 +67,25 @@ async function getCachedSlides(): Promise<{ slides: HeroSlide[]; syncedAt: numbe
       return { slides: meta.data.map(normaliseSlide), syncedAt: meta.syncedAt };
     }
 
-    // Legacy fallback: plain localStorage written by older code versions
     const raw = IdbStorage.safeLocalGet(HERO_SLIDES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return { slides: parsed.map(normaliseSlide), syncedAt: 0 }; // syncedAt=0 → always stale → will refresh
+        return { slides: parsed.map(normaliseSlide), syncedAt: 0 };
       }
     }
   } catch {}
   return null;
 }
 
-async function updateCache(slides: HeroSlide[]) {
+async function updateCache(slides: HeroSlide[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     await IdbStorage.setWithMeta(HERO_SLIDES_STORAGE_KEY, slides);
     IdbStorage.safeLocalSet(HERO_SLIDES_STORAGE_KEY, JSON.stringify(slides));
-    window.dispatchEvent(new Event("lp_hero_slides_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_hero_slides_updated"));
+    }
   } catch (err) {
     console.warn("Hero cache update error:", err);
   }
@@ -82,8 +98,8 @@ function sanitizeSlideForFirestore(slide: HeroSlide): Record<string, unknown> {
     subtitle: slide.subtitle || "",
     location: slide.location || "Latpanchar, Kurseong",
     badge: slide.badge || "Latpanchar Retreat",
-    desktopImage: slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
-    mobileImage: slide.mobileImage || slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
+    desktopImage: slide.desktopImage || "/images/hero/himalayan-horizon-view.jpeg",
+    mobileImage: slide.mobileImage || slide.desktopImage || "/images/hero/himalayan-horizon-view.jpeg",
     video: slide.video || "",
     overlayOpacity: typeof slide.overlayOpacity === "number" ? slide.overlayOpacity : 0.5,
     textAlignment: slide.textAlignment || "left",
@@ -95,11 +111,9 @@ function sanitizeSlideForFirestore(slide: HeroSlide): Record<string, unknown> {
   };
 }
 
-// ── Internal: fetch slides from Firestore and merge with local-only entries ──
+// ── Internal: fetch slides from Firestore ──
 
-async function fetchFromFirestore(
-  localSlides: HeroSlide[]
-): Promise<HeroSlide[]> {
+async function fetchFromFirestore(): Promise<HeroSlide[]> {
   try {
     const colRef = collection(db, "heroSlides");
     const fetchPromise = getDocs(query(colRef, orderBy("displayOrder", "asc")));
@@ -132,15 +146,11 @@ async function fetchFromFirestore(
         });
       });
 
-
-      // Keep slides that only exist locally (e.g. created offline)
-      const firestoreIds = new Set(firestoreSlides.map((s) => s.id));
-      const localOnly = localSlides.filter((s) => !firestoreIds.has(s.id));
-      return [...firestoreSlides, ...localOnly].sort(
+      // Firestore is the single source of truth (do not resurrect deleted items)
+      return firestoreSlides.sort(
         (a, b) => (a.displayOrder || 1) - (b.displayOrder || 1)
       );
     } else if (snapshot && snapshot.empty) {
-      // Auto-seed Firestore with DEFAULT_SLIDES on first run
       for (const s of DEFAULT_SLIDES) {
         await setDoc(doc(db, "heroSlides", s.id), sanitizeSlideForFirestore(s));
       }
@@ -150,29 +160,14 @@ async function fetchFromFirestore(
     console.warn("Firestore heroSlides fetch fallback:", err);
   }
 
-  return localSlides;
+  return DEFAULT_SLIDES;
 }
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export const HeroService = {
   async getAllSlides(): Promise<HeroSlide[]> {
-    const cached = await getCachedSlides();
-    const cacheAge = cached ? Date.now() - cached.syncedAt : Infinity;
-    const cacheIsStale = cacheAge > MAX_CACHE_AGE_MS;
-
-    if (cached && !cacheIsStale) {
-      // Cache is fresh — return immediately and silently refresh in the background
-      const localSlides = cached.slides;
-      fetchFromFirestore(localSlides)
-        .then(updateCache)
-        .catch(() => {});
-      return localSlides;
-    }
-
-    // Cache is stale or empty — fetch from Firestore first
-    const localSlides = cached ? cached.slides : DEFAULT_SLIDES;
-    const fresh = await fetchFromFirestore(localSlides);
+    const fresh = await fetchFromFirestore();
     await updateCache(fresh);
     return fresh;
   },
@@ -182,6 +177,64 @@ export const HeroService = {
     return slides
       .filter((s) => s.active)
       .sort((a, b) => (a.displayOrder || 1) - (b.displayOrder || 1));
+  },
+
+  /** Real-time subscription to active hero slides */
+  subscribeToActiveSlides(callback: (slides: HeroSlide[]) => void): () => void {
+    if (typeof window === "undefined") return () => {};
+
+    // Immediate cached or default view to prevent blank flash
+    getCachedSlides().then((cached) => {
+      if (cached && cached.slides.length > 0) {
+        const active = cached.slides
+          .filter((s) => s.active)
+          .sort((a, b) => (a.displayOrder || 1) - (b.displayOrder || 1));
+        callback(active);
+      } else {
+        callback(DEFAULT_SLIDES);
+      }
+    });
+
+    const colRef = collection(db, "heroSlides");
+    const q = query(colRef, orderBy("displayOrder", "asc"));
+
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const freshSlides: HeroSlide[] = snapshot.docs.map((docSnap) => {
+            const data = docSnap.data() as Record<string, unknown>;
+            return normaliseSlide({
+              id: docSnap.id,
+              title: (data.title as string) || "",
+              subtitle: (data.subtitle as string) || "",
+              location: (data.location as string) || "",
+              badge: (data.badge as string) || "",
+              desktopImage: (data.desktopImage as string) || (data.image as string) || "",
+              mobileImage: (data.mobileImage as string) || (data.desktopImage as string) || (data.image as string) || "",
+              video: (data.video as string) || "",
+              overlayOpacity: data.overlayOpacity as number | undefined,
+              textAlignment: ((data.textAlignment as string) || "left") as "left" | "center" | "right",
+              buttonText: (data.buttonText as string) || "Book Your Stay",
+              buttonLink: (data.buttonLink as string) || "/booking",
+              active: data.active !== false,
+              displayOrder: typeof data.displayOrder === "number" ? data.displayOrder : 1,
+            });
+          });
+
+          updateCache(freshSlides, false);
+          const active = freshSlides
+            .filter((s) => s.active)
+            .sort((a, b) => (a.displayOrder || 1) - (b.displayOrder || 1));
+          callback(active);
+        }
+      },
+      (err) => {
+        console.warn("Firestore heroSlides onSnapshot error:", err);
+      }
+    );
+
+    return unsub;
   },
 
   async updateSlide(id: string, updated: Partial<HeroSlide>): Promise<HeroSlide> {
@@ -216,7 +269,7 @@ export const HeroService = {
     const nextSlides = currentList.some((s) => s.id === id)
       ? currentList.map((s) => (s.id === id ? updatedSlide : s))
       : [...currentList, updatedSlide];
-    await updateCache(nextSlides);
+    await updateCache(nextSlides, true);
 
     try {
       await setDoc(doc(db, "heroSlides", id), sanitizeSlideForFirestore(updatedSlide), { merge: true });
@@ -235,8 +288,8 @@ export const HeroService = {
       subtitle: slide.subtitle || "",
       location: slide.location || "Latpanchar, Kurseong",
       badge: slide.badge || "Latpanchar Retreat",
-      desktopImage: slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
-      mobileImage: slide.mobileImage || slide.desktopImage || "/images/hero/bengal-latpanchar.jpg.jpeg",
+      desktopImage: slide.desktopImage || "/images/hero/himalayan-horizon-view.jpeg",
+      mobileImage: slide.mobileImage || slide.desktopImage || "/images/hero/himalayan-horizon-view.jpeg",
       video: slide.video || "",
       overlayOpacity: slide.overlayOpacity,
       textAlignment: slide.textAlignment || "left",
@@ -252,7 +305,7 @@ export const HeroService = {
     const nextSlides = exists
       ? currentList.map((s) => (s.id === newId ? newSlide : s))
       : [...currentList, newSlide];
-    await updateCache(nextSlides);
+    await updateCache(nextSlides, true);
 
     try {
       await setDoc(doc(db, "heroSlides", newId), sanitizeSlideForFirestore(newSlide));
@@ -267,7 +320,7 @@ export const HeroService = {
     const cached = await getCachedSlides();
     const currentList = cached ? cached.slides : DEFAULT_SLIDES;
     const filtered = currentList.filter((s) => s.id !== id);
-    await updateCache(filtered);
+    await updateCache(filtered, true);
 
     try {
       await deleteDoc(doc(db, "heroSlides", id));

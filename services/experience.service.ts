@@ -28,12 +28,14 @@ async function getStoredExperiences(): Promise<ExperienceData[]> {
   return DEFAULT_EXPERIENCES;
 }
 
-async function updateCache(items: ExperienceData[]) {
+async function updateCache(items: ExperienceData[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     await IdbStorage.set(EXPERIENCES_STORAGE_KEY, items);
     IdbStorage.safeLocalSet(EXPERIENCES_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_experiences_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_experiences_updated"));
+    }
   } catch {}
 }
 
@@ -55,17 +57,13 @@ export const ExperienceService = {
           ...docSnap.data(),
         }));
 
-        const firestoreIds = new Set(firestoreData.map((e) => e.id));
-        const localOnly = localData.filter((e) => !firestoreIds.has(e.id));
-        const merged = [...firestoreData, ...localOnly];
-
-        await updateCache(merged);
-        return merged;
+        await updateCache(firestoreData, false);
+        return firestoreData;
       } else if (snapshot && snapshot.empty) {
         for (const exp of DEFAULT_EXPERIENCES) {
           await setDoc(doc(db, "experiences", exp.id), exp);
         }
-        await updateCache(DEFAULT_EXPERIENCES);
+        await updateCache(DEFAULT_EXPERIENCES, false);
         return DEFAULT_EXPERIENCES;
       }
     } catch (err) {
@@ -87,7 +85,7 @@ export const ExperienceService = {
 
     const updated = { ...target, featured: !target.featured };
     const nextList = currentList.map((e) => (e.id === id ? updated : e));
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await setDoc(doc(db, "experiences", id), { featured: updated.featured }, { merge: true });
@@ -105,7 +103,7 @@ export const ExperienceService = {
 
     const updated = { ...target, ...data };
     const nextList = currentList.map((e) => (e.id === id ? updated : e));
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await setDoc(doc(db, "experiences", id), updated, { merge: true });
@@ -126,7 +124,7 @@ export const ExperienceService = {
 
     const currentList = await getStoredExperiences();
     const nextList = [...currentList, newExp];
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await setDoc(doc(db, "experiences", newId), newExp);
@@ -140,7 +138,7 @@ export const ExperienceService = {
   async deleteExperience(id: string): Promise<void> {
     const currentList = await getStoredExperiences();
     const nextList = currentList.filter((e) => e.id !== id);
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await deleteDoc(doc(db, "experiences", id));

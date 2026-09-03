@@ -27,12 +27,14 @@ async function getStoredBlogs(): Promise<BlogArticle[]> {
   return DEFAULT_BLOGS;
 }
 
-async function updateCache(items: BlogArticle[]) {
+async function updateCache(items: BlogArticle[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     await IdbStorage.set(BLOGS_STORAGE_KEY, items);
     IdbStorage.safeLocalSet(BLOGS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_blogs_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_blogs_updated"));
+    }
   } catch {}
 }
 
@@ -54,17 +56,13 @@ export const BlogService = {
           ...docSnap.data(),
         }));
 
-        const firestoreIds = new Set(firestoreData.map((b) => b.id));
-        const localOnly = localData.filter((b) => !firestoreIds.has(b.id));
-        const merged = [...firestoreData, ...localOnly];
-
-        await updateCache(merged);
-        return merged;
+        await updateCache(firestoreData, false);
+        return firestoreData;
       } else if (snapshot && snapshot.empty) {
         for (const blog of DEFAULT_BLOGS) {
           await setDoc(doc(db, "blogs", blog.id), blog);
         }
-        await updateCache(DEFAULT_BLOGS);
+        await updateCache(DEFAULT_BLOGS, false);
         return DEFAULT_BLOGS;
       }
     } catch (err) {
@@ -90,7 +88,7 @@ export const BlogService = {
 
     const currentList = await getStoredBlogs();
     const updated = [newBlog, ...currentList];
-    await updateCache(updated);
+    await updateCache(updated, true);
 
     try {
       await setDoc(doc(db, "blogs", newId), newBlog);
@@ -113,7 +111,7 @@ export const BlogService = {
     };
 
     const nextList = currentList.map((b) => (b.id === id ? updated : b));
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await setDoc(doc(db, "blogs", id), updated, { merge: true });
@@ -127,7 +125,7 @@ export const BlogService = {
   async deleteBlog(id: string): Promise<void> {
     const currentList = await getStoredBlogs();
     const nextList = currentList.filter((b) => b.id !== id);
-    await updateCache(nextList);
+    await updateCache(nextList, true);
 
     try {
       await deleteDoc(doc(db, "blogs", id));
@@ -136,3 +134,4 @@ export const BlogService = {
     }
   },
 };
+

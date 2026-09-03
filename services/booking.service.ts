@@ -90,11 +90,13 @@ function getCachedBookings(): Booking[] {
   return DEFAULT_BOOKINGS;
 }
 
-function updateCache(items: Booking[]) {
+function updateCache(items: Booking[], notify = false) {
   if (typeof window === "undefined") return;
   try {
     IdbStorage.safeLocalSet(BOOKINGS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new Event("lp_bookings_updated"));
+    if (notify) {
+      window.dispatchEvent(new Event("lp_bookings_updated"));
+    }
   } catch {}
 }
 
@@ -145,7 +147,7 @@ export const BookingService = {
 
     const cached = getCachedBookings();
     const updated = [newBooking, ...cached];
-    updateCache(updated);
+    updateCache(updated, true);
 
     (async () => {
       try {
@@ -180,7 +182,7 @@ export const BookingService = {
 
     target.status = newStatus;
     const nextList = cached.map((b) => (b.id === id ? { ...b, status: newStatus } : b));
-    updateCache(nextList);
+    updateCache(nextList, true);
 
     (async () => {
       try {
@@ -202,7 +204,7 @@ export const BookingService = {
   async deleteBooking(id: string): Promise<void> {
     const cached = getCachedBookings();
     const filtered = cached.filter((b) => b.id !== id);
-    updateCache(filtered);
+    updateCache(filtered, true);
 
     (async () => {
       try {

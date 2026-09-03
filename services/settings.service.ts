@@ -80,7 +80,6 @@ export const SettingsService = {
         if (typeof window !== "undefined") {
           await IdbStorage.set(SETTINGS_KEY, firestoreData);
           IdbStorage.safeLocalSet(SETTINGS_KEY, JSON.stringify(firestoreData));
-          window.dispatchEvent(new Event("lp_settings_updated"));
         }
         return firestoreData;
       } else if (snapshot && !snapshot.exists()) {
@@ -130,7 +129,6 @@ export const SettingsService = {
           if (typeof window !== "undefined") {
             await IdbStorage.set(SECTIONS_KEY, data.sections);
             IdbStorage.safeLocalSet(SECTIONS_KEY, JSON.stringify(data.sections));
-            window.dispatchEvent(new Event("lp_sections_updated"));
           }
           return data.sections as HomepageSectionConfig[];
         }

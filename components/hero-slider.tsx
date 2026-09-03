@@ -24,20 +24,20 @@ export default function HeroSlider() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    async function load() {
+    const unsub = HeroService.subscribeToActiveSlides((activeSlides) => {
+      setSlides(activeSlides);
+    });
+
+    const handleUpdate = async () => {
       const activeSlides = await HeroService.getActiveSlides();
       setSlides(activeSlides);
-    }
-    load();
-
-    const handleUpdate = () => {
-      load();
     };
 
     window.addEventListener("lp_hero_slides_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
 
     return () => {
+      unsub();
       window.removeEventListener("lp_hero_slides_updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
     };

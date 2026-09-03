@@ -40,9 +40,9 @@ export default function ImageDropbox({
           await Promise.all(
             accepted.map((file) =>
               compressImageToWebP(file, {
-                maxDimension: multiple ? 1000 : 1200,
-                quality: 0.72,
-                maxSizeBytes: multiple ? 120 * 1024 : 180 * 1024,
+                maxDimension: multiple ? 800 : 1100,
+                quality: multiple ? 0.65 : 0.70,
+                maxSizeBytes: multiple ? 65 * 1024 : 120 * 1024,
               })
             )
           )
