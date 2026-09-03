@@ -122,6 +122,21 @@ export const BookingService = {
       }
     })();
 
+    // Trigger automated Gmail SMTP booking email to both guest and admin
+    (async () => {
+      try {
+        if (typeof window !== "undefined") {
+          fetch("/api/send-booking-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ booking: newBooking }),
+          }).catch((err) => console.warn("Booking email dispatch warning:", err));
+        }
+      } catch (err) {
+        console.warn("Booking email trigger warning:", err);
+      }
+    })();
+
     return newBooking;
   },
 

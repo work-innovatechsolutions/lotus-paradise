@@ -148,8 +148,21 @@ export function ReservationEngine() {
     try {
       const created = await BookingService.createBooking(bookingPayload);
       setBookingConfirmed(created);
+
+      // Trigger automatic Gmail SMTP booking confirmation email to guest and admin
+      fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking: created }),
+      }).catch((err) => console.warn("Email dispatch error:", err));
     } catch {
       setBookingConfirmed(bookingPayload);
+
+      fetch("/api/send-booking-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking: bookingPayload }),
+      }).catch((err) => console.warn("Email dispatch error:", err));
     }
 
     setStep(5);
@@ -410,7 +423,7 @@ export function ReservationEngine() {
                         }`}
                       >
                         {/* Image */}
-                        <div className="relative h-52 w-full overflow-hidden flex-shrink-0">
+                        <div className="relative h-52 w-full overflow-hidden flex-shrink-0" style={{ position: "relative" }}>
                           <Image
                             src={images[activeIdx]}
                             alt={room.title}

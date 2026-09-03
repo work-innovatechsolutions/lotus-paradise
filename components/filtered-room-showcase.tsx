@@ -132,7 +132,7 @@ function RoomCard({
       className="bg-white rounded-3xl overflow-hidden flex flex-col justify-between group border border-[#C89D45]/30 hover:border-[#C89D45] transition-all duration-300 hover:-translate-y-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)]"
     >
       {/* IMAGE */}
-      <div className="relative h-52 w-full overflow-hidden flex-shrink-0">
+      <div className="relative h-52 w-full overflow-hidden flex-shrink-0" style={{ position: "relative" }}>
         <Image
           src={images[activeImgIdx]}
           alt={room.title}

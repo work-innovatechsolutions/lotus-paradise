@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Send,
   HelpCircle,
+  Mail,
 } from "lucide-react";
 import { PanelLockService, type AdminPanelLockConfig } from "@/services/panel-lock.service";
 import { GoogleSheetService } from "@/services/google-sheet.service";
@@ -146,6 +147,19 @@ export default function AdminSettingsPage() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
 
+  // Gmail SMTP Automation State
+  const [smtpConfig, setSmtpConfig] = useState({
+    user: "",
+    pass: "",
+    adminEmail: "stay@lotusparadisehomestay.com",
+    fromName: "The Cometas Himalayan Retreat",
+  });
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpResult, setSmtpResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showSmtpGuide, setShowSmtpGuide] = useState(false);
+
   useEffect(() => {
     // Load existing settings if saved in localStorage
     try {
@@ -168,6 +182,20 @@ export default function AdminSettingsPage() {
     GoogleSheetService.getWebhookUrl().then((url) => {
       if (url) setSheetUrl(url);
     });
+
+    // Load SMTP configuration status
+    fetch("/api/send-booking-email")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.configured) {
+          setSmtpConfig((prev) => ({
+            ...prev,
+            user: data.smtpUser || prev.user,
+            adminEmail: data.adminEmail || prev.adminEmail,
+          }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleSaveSheetUrl = async (e: React.FormEvent) => {
@@ -198,6 +226,56 @@ export default function AdminSettingsPage() {
     const res = await GoogleSheetService.testConnection(sheetUrl.trim());
     setSheetResult(res);
     setTestingSheet(false);
+  };
+
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSmtp(true);
+    setSmtpResult(null);
+    try {
+      const res = await fetch("/api/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...smtpConfig,
+          saveToDb: true,
+          testRecipient: smtpConfig.adminEmail || smtpConfig.user,
+        }),
+      });
+      const data = await res.json();
+      setSmtpResult(data);
+    } catch (err: any) {
+      setSmtpResult({ success: false, message: err.message || "Failed to save SMTP settings" });
+    } finally {
+      setSavingSmtp(false);
+      setTimeout(() => setSmtpResult(null), 8000);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    if (!smtpConfig.user || !smtpConfig.pass) {
+      setSmtpResult({ success: false, message: "Please enter your Gmail address and 16-character App Password first." });
+      return;
+    }
+    setTestingSmtp(true);
+    setSmtpResult(null);
+    try {
+      const res = await fetch("/api/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...smtpConfig,
+          saveToDb: false,
+          testRecipient: smtpConfig.adminEmail || smtpConfig.user,
+        }),
+      });
+      const data = await res.json();
+      setSmtpResult(data);
+    } catch (err: any) {
+      setSmtpResult({ success: false, message: err.message || "Failed to connect to Gmail SMTP" });
+    } finally {
+      setTestingSmtp(false);
+    }
   };
 
   const handleCopyCode = () => {
@@ -619,7 +697,198 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          3. GENERAL WEBSITE & CONTACT SETTINGS
+          3. GMAIL SMTP & BOOKING CONFIRMATION EMAIL AUTOMATION
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-[#2C2473] rounded-3xl p-6 md:p-8 border-2 border-[#C89D45] shadow-2xl space-y-6 relative overflow-hidden">
+        <div
+          className="absolute -top-24 -right-24 w-60 h-60 rounded-full pointer-events-none opacity-20"
+          style={{ background: "radial-gradient(circle, #C89D45, transparent)" }}
+        />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#C89D45]/20 border border-[#C89D45]/50 flex items-center justify-center text-[#C89D45]">
+              <Mail className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-[10px] font-accent uppercase tracking-widest text-[#C89D45] font-bold block">
+                Automated Notifications Engine
+              </span>
+              <h3 className="font-serif text-2xl font-bold text-white flex items-center gap-2">
+                <span>Gmail SMTP Booking Email Automation</span>
+                {smtpConfig.user ? (
+                  <span className="text-[10px] font-accent font-bold px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3" /> ACTIVE
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-accent font-bold px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
+                    SETUP REQUIRED
+                  </span>
+                )}
+              </h3>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowSmtpGuide(!showSmtpGuide)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/40 border border-white/20 text-xs font-accent font-bold text-gray-300 hover:text-white hover:border-[#C89D45] transition-all"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-[#C89D45]" />
+            <span>{showSmtpGuide ? "Hide Gmail Guide" : "Gmail 30-Sec Setup"}</span>
+          </button>
+        </div>
+
+        {/* Status Message */}
+        {smtpResult && (
+          <div
+            className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in ${
+              smtpResult.success
+                ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-200"
+                : "bg-red-950/80 border-red-500/50 text-red-200"
+            }`}
+          >
+            {smtpResult.success ? (
+              <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+            )}
+            <span>{smtpResult.message}</span>
+          </div>
+        )}
+
+        {/* Gmail Setup Instructions Guide */}
+        {showSmtpGuide && (
+          <div className="bg-black/50 border border-[#C89D45]/40 rounded-2xl p-5 space-y-3 text-xs animate-in fade-in">
+            <h4 className="font-accent uppercase font-bold text-[#C89D45] text-xs flex items-center gap-2">
+              <span>How to generate a Gmail App Password in 30 seconds:</span>
+            </h4>
+            <ol className="space-y-2 list-decimal list-inside text-gray-300 leading-relaxed">
+              <li>
+                Open <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="text-[#C89D45] underline font-bold inline-flex items-center gap-0.5">Google Account Security <ExternalLink className="w-2.5 h-2.5" /></a> and confirm <strong>2-Step Verification</strong> is ON.
+              </li>
+              <li>
+                Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-[#C89D45] underline font-bold inline-flex items-center gap-0.5">App Passwords <ExternalLink className="w-2.5 h-2.5" /></a>.
+              </li>
+              <li>
+                Type <em>&quot;The Cometas Homestay&quot;</em> as App Name and click <strong>Create</strong>.
+              </li>
+              <li>
+                Copy the generated <strong>16-letter password</strong> (e.g. <code>abcd efgh ijkl mnop</code>).
+              </li>
+              <li>
+                Paste your Gmail and the 16-letter password below, then click <strong>&quot;Save SMTP Settings&quot;</strong> and <strong>&quot;Test Email&quot;</strong>!
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {/* SMTP Form */}
+        <form onSubmit={handleSaveSmtp} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+                Gmail Sender Address *
+              </label>
+              <input
+                type="email"
+                placeholder="yourhomestay@gmail.com"
+                value={smtpConfig.user}
+                onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
+                className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+                Gmail 16-Character App Password *
+              </label>
+              <div className="relative">
+                <input
+                  type={showSmtpPass ? "text" : "password"}
+                  placeholder="xxxx xxxx xxxx xxxx"
+                  value={smtpConfig.pass}
+                  onChange={(e) => setSmtpConfig({ ...smtpConfig, pass: e.target.value })}
+                  className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 pr-10 text-xs font-mono text-white focus:outline-none focus:border-[#C89D45]"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSmtpPass(!showSmtpPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+                Host / Admin Notification Email (Receives Booking Alerts) *
+              </label>
+              <input
+                type="email"
+                placeholder="stay@lotusparadisehomestay.com"
+                value={smtpConfig.adminEmail}
+                onChange={(e) => setSmtpConfig({ ...smtpConfig, adminEmail: e.target.value })}
+                className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1">
+                Sender Display Name
+              </label>
+              <input
+                type="text"
+                placeholder="The Cometas Himalayan Retreat"
+                value={smtpConfig.fromName}
+                onChange={(e) => setSmtpConfig({ ...smtpConfig, fromName: e.target.value })}
+                className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-white/10">
+            <p className="text-[11px] text-gray-300">
+              ⚡ Sends luxury HTML receipts to <strong>Guest</strong> and instant booking alerts to <strong>Host</strong> upon every confirmed stay.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={savingSmtp}
+                className="bg-[#C62828] hover:bg-[#8B1E1E] disabled:opacity-50 text-white px-5 py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow transition-all border border-[#C89D45]/40 shrink-0"
+              >
+                <Save className="w-3.5 h-3.5 text-[#C89D45]" />
+                <span>{savingSmtp ? "Saving..." : "Save SMTP Settings"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTestSmtp}
+                disabled={testingSmtp || !smtpConfig.user || !smtpConfig.pass}
+                className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow transition-all border border-emerald-500/40 shrink-0"
+                title="Send a test email to verify credentials"
+              >
+                {testingSmtp ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-[#C89D45] animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5 text-[#C89D45]" />
+                )}
+                <span>{testingSmtp ? "Sending Test..." : "Test Email"}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          4. GENERAL WEBSITE & CONTACT SETTINGS
       ══════════════════════════════════════════════════════════════════════ */}
       {saved && (
         <div className="bg-emerald-600/30 border border-emerald-500 text-emerald-200 p-4 rounded-2xl flex items-center gap-2">

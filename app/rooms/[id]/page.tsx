@@ -32,7 +32,7 @@ export default async function RoomDetailPage({ params }: { params: Promise<{ id:
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-6">
-          <div className="relative h-[420px] rounded-3xl overflow-hidden shadow-2xl border border-[#C89D45]/40">
+          <div className="relative h-[420px] rounded-3xl overflow-hidden shadow-2xl border border-[#C89D45]/40" style={{ position: "relative" }}>
             <Image
               src={room.images[0]}
               alt={room.title}
@@ -43,7 +43,7 @@ export default async function RoomDetailPage({ params }: { params: Promise<{ id:
 
           <div className="grid grid-cols-2 gap-4">
             {room.images.slice(1).map((img, idx) => (
-              <div key={idx} className="relative h-44 rounded-2xl overflow-hidden border border-[#C89D45]/30">
+              <div key={idx} className="relative h-44 rounded-2xl overflow-hidden border border-[#C89D45]/30" style={{ position: "relative" }}>
                 <Image src={img} alt={`${room.title} ${idx + 2}`} fill className="object-cover" />
               </div>
             ))}
