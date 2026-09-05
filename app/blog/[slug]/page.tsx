@@ -4,11 +4,30 @@ import Link from "next/link";
 import { BLOG_POSTS, type BlogArticle } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Calendar, Clock, ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
 
 export function generateStaticParams() {
   return BLOG_POSTS.map((post) => ({
     slug: post.slug,
   }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = BLOG_POSTS.find((p) => p.slug === slug);
+
+  if (!post) {
+    return constructMetadata({ title: "Article | The Cometas Homestays Blog" });
+  }
+
+  return constructMetadata({
+    title: `${post.title} | The Cometas Homestays`,
+    description: post.excerpt || post.content?.slice(0, 160),
+    image: post.coverImage,
+    canonicalUrl: `https://thecometas.com/blog/${post.slug}`,
+    keywords: [post.category, post.title, "Latpanchar Blog", "The Cometas"],
+  });
 }
 
 export default async function BlogArticlePage({ params }: { params: Promise<{ slug: string }> }) {

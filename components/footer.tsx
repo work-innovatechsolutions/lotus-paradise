@@ -255,7 +255,7 @@ export default function Footer() {
 
         {/* BOTTOM COPYRIGHT */}
         <div className="pt-8 border-t border-[#C89D45]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-sans text-[#888]">
-          <p>© {new Date().getFullYear()} Lotus Paradise Homestay. All Rights Reserved.</p>
+          <p>© {new Date().getFullYear()} The Cometas Homestays. All Rights Reserved.</p>
           <div className="flex items-center space-x-6 font-accent text-[11px] tracking-wider uppercase">
             <Link href="/privacy-policy" className="hover:text-[#C62828] transition-colors">
               Privacy Policy

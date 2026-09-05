@@ -141,6 +141,7 @@ export default function AdminSettingsPage() {
 
   // Google Sheets state
   const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetViewUrl, setSheetViewUrl] = useState("");
   const [testingSheet, setTestingSheet] = useState(false);
   const [savingSheet, setSavingSheet] = useState(false);
   const [sheetResult, setSheetResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -183,6 +184,10 @@ export default function AdminSettingsPage() {
       if (url) setSheetUrl(url);
     });
 
+    SettingsService.getGeneralSettings().then((gen: any) => {
+      if (gen?.googleSheetUrl) setSheetViewUrl(gen.googleSheetUrl);
+    });
+
     // Load SMTP configuration status
     fetch("/api/send-booking-email")
       .then((r) => r.json())
@@ -203,13 +208,15 @@ export default function AdminSettingsPage() {
     setSavingSheet(true);
     try {
       const trimmed = sheetUrl.trim();
+      const viewTrimmed = sheetViewUrl.trim();
       localStorage.setItem("lp_google_sheet_url", trimmed);
       await SettingsService.updateGeneralSettings({
         googleSheetWebhookUrl: trimmed,
+        googleSheetUrl: viewTrimmed,
       });
-      setSheetResult({ success: true, message: "Google Sheet Webhook URL saved successfully!" });
+      setSheetResult({ success: true, message: "Google Sheet settings saved successfully!" });
     } catch (err: any) {
-      setSheetResult({ success: false, message: err.message || "Failed to save URL" });
+      setSheetResult({ success: false, message: err.message || "Failed to save settings" });
     } finally {
       setSavingSheet(false);
       setTimeout(() => setSheetResult(null), 5000);
@@ -691,6 +698,22 @@ export default function AdminSettingsPage() {
             </div>
             <p className="text-[10px] text-gray-400 mt-1.5">
               Every direct reservation confirmed on the website will be instantly appended as a formatted row in your Google Sheet.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-xs font-accent uppercase text-[#C89D45] font-bold block mb-1.5">
+              Google Sheet Spreadsheet View / Edit URL (Direct Link)
+            </label>
+            <input
+              type="url"
+              placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit"
+              value={sheetViewUrl}
+              onChange={(e) => setSheetViewUrl(e.target.value)}
+              className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-[#C89D45]"
+            />
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              This link is attached to the <strong>&quot;📊 Open Google Sheet&quot;</strong> button in your Admin booking alert emails.
             </p>
           </div>
         </form>

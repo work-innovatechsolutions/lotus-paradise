@@ -1,5 +1,21 @@
 import React from "react";
 import GalleryMasonry from "@/components/gallery-masonry";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Photo Gallery & Visual Anthology | The Cometas Homestays",
+  description:
+    "View our photography gallery capturing golden Kanchenjunga sunrises, luxury guest rooms, Rufous-necked Hornbills, bonfire evenings, and scenic Latpanchar landscapes.",
+  canonicalUrl: "https://thecometas.com/gallery",
+  keywords: [
+    "Latpanchar Photos",
+    "The Cometas Gallery",
+    "Lotus Paradise Photos",
+    "Rufous-necked hornbill pictures",
+    "Kanchenjunga sunrise Latpanchar",
+  ],
+});
 
 export default function GalleryPage() {
   return (

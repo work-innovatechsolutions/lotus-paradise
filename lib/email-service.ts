@@ -1,6 +1,11 @@
 import nodemailer from "nodemailer";
 import type { Booking } from "@/types/booking";
-import { getGuestConfirmationEmailHtml, getAdminAlertEmailHtml } from "./email-templates";
+import {
+  getGuestConfirmationEmailHtml,
+  getAdminAlertEmailHtml,
+  getGuestConfirmationEmailText,
+  getAdminAlertEmailText,
+} from "./email-templates";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -124,10 +129,13 @@ export async function sendBookingEmails(booking: Booking, customConfig?: SmtpCon
   if (booking.email && booking.email.includes("@")) {
     try {
       const guestHtml = getGuestConfirmationEmailHtml(booking);
+      const guestText = getGuestConfirmationEmailText(booking);
       const info = await transporter.sendMail({
         from: fromAddress,
-        to: booking.email,
+        to: booking.email.trim(),
+        replyTo: config.adminEmail || config.user,
         subject: `Booking Confirmed: Your Himalayan Stay at The Cometas (${booking.bookingNumber})`,
+        text: guestText,
         html: guestHtml,
       });
       guestSent = true;
@@ -142,11 +150,36 @@ export async function sendBookingEmails(booking: Booking, customConfig?: SmtpCon
   const adminTarget = config.adminEmail || config.user;
   if (adminTarget && adminTarget.includes("@")) {
     try {
-      const adminHtml = getAdminAlertEmailHtml(booking);
+      // Resolve Google Sheet view link
+      let sheetUrl =
+        process.env.GOOGLE_SHEET_URL ||
+        process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL;
+
+      if (!sheetUrl) {
+        try {
+          const db = getAdminDb();
+          const docSnap = await db.collection("siteSettings").doc("general").get();
+          if (docSnap.exists) {
+            const data = docSnap.data();
+            sheetUrl = data?.googleSheetUrl;
+          }
+        } catch {}
+      }
+
+      if (!sheetUrl) {
+        sheetUrl =
+          process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL ||
+          "https://docs.google.com/spreadsheets";
+      }
+
+      const adminHtml = getAdminAlertEmailHtml(booking, "http://localhost:3000", sheetUrl);
+      const adminText = getAdminAlertEmailText(booking, sheetUrl);
       const info = await transporter.sendMail({
         from: fromAddress,
-        to: adminTarget,
+        to: adminTarget.trim(),
+        replyTo: booking.email && booking.email.includes("@") ? booking.email.trim() : undefined,
         subject: `⚡ New Booking: ${booking.guestName} (${booking.bookingNumber}) - ₹${booking.totalAmount}`,
+        text: adminText,
         html: adminHtml,
       });
       adminSent = true;

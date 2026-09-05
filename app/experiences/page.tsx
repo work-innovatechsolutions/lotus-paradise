@@ -2,6 +2,23 @@ import React from "react";
 import ExperienceStoryCard from "@/components/experience-story-card";
 import BirdsShowcase from "@/components/birds-showcase";
 import SeasonalGuide from "@/components/seasonal-guide";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Himalayan Experiences & Birding Trails | The Cometas Homestays",
+  description:
+    "Discover guided Rufous-necked Hornbill birdwatching expeditions in Mahananda Wildlife Sanctuary, Ahaldara sunrise treks, Namthing Pokhari salamander visits, and orchard walks.",
+  canonicalUrl: "https://thecometas.com/experiences",
+  keywords: [
+    "Latpanchar Birdwatching",
+    "Rufous Necked Hornbill Trek",
+    "Ahaldara View Point",
+    "Namthing Pokhari Lake",
+    "Sittong Orange Orchards Tour",
+    "Mahananda Forest Safari",
+  ],
+});
 
 export default function ExperiencesPage() {
   return (

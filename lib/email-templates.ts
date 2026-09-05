@@ -167,9 +167,14 @@ export function getGuestConfirmationEmailHtml(booking: Booking, siteUrl = "https
  * ADMIN NOTIFICATION EMAIL TEMPLATE (ALERT ON NEW BOOKING)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export function getAdminAlertEmailHtml(booking: Booking, siteUrl = "http://localhost:3000"): string {
+export function getAdminAlertEmailHtml(
+  booking: Booking,
+  siteUrl = "http://localhost:3000",
+  sheetUrl?: string
+): string {
   const checkInFormatted = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkIn;
   const checkOutFormatted = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkOut;
+  const targetSheetLink = sheetUrl || "https://docs.google.com/spreadsheets";
 
   return `
 <!DOCTYPE html>
@@ -263,8 +268,8 @@ export function getAdminAlertEmailHtml(booking: Booking, siteUrl = "http://local
 
       <!-- QUICK ACTIONS -->
       <div style="text-align: center; margin-top: 25px;">
-        <a href="${siteUrl}/admin/bookings" class="btn">
-          View in Admin Dashboard
+        <a href="${targetSheetLink}" class="btn" style="background-color: #0F9D58; color: #FFFFFF !important;">
+          📊 Open Google Sheet
         </a>
         <a href="https://wa.me/${(booking.phone || '').replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(booking.guestName)},%20thank%20you%20for%20booking%20with%20The%20Cometas%20(Ref:%20${booking.bookingNumber})" class="btn-green">
           WhatsApp Guest
@@ -275,4 +280,51 @@ export function getAdminAlertEmailHtml(booking: Booking, siteUrl = "http://local
 </body>
 </html>
 `;
+}
+
+export function getGuestConfirmationEmailText(booking: Booking): string {
+  const checkInFormatted = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkIn;
+  const checkOutFormatted = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkOut;
+
+  return `Dear ${booking.guestName},
+
+Thank you for reserving your Himalayan retreat with us! Your reservation has been successfully confirmed.
+
+RESERVATION SUMMARY:
+Booking Reference: ${booking.bookingNumber || "LPH-" + booking.id}
+Room: ${booking.roomTitle}
+Check-In: ${checkInFormatted} (from 12:00 PM)
+Check-Out: ${checkOutFormatted} (by 11:00 AM)
+Duration: ${booking.nights} Night(s)
+Guests: ${booking.guestsCount} Guest(s)
+Package: Fooding & Lodging (All 4 Daily Meals Included: Morning Tea, Breakfast, Lunch, Evening Snacks & Tea, Dinner)
+Total Amount: ${formatRupee(booking.totalAmount)}
+Status: ${booking.status || "CONFIRMED"}
+${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}
+Location: The Cometas Himalayan Retreat, Latpanchar (4,500 ft), Kurseong, Darjeeling District, West Bengal
+Contact / WhatsApp: +91 98320 12345
+
+We look forward to hosting you in the Himalayas!
+The Cometas Homestay Team`;
+}
+
+export function getAdminAlertEmailText(booking: Booking, sheetUrl?: string): string {
+  const checkInFormatted = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkIn;
+  const checkOutFormatted = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkOut;
+  const targetSheetLink = sheetUrl || "https://docs.google.com/spreadsheets";
+
+  return `NEW GUEST BOOKING RECEIVED
+
+Booking Reference: ${booking.bookingNumber || "LPH-" + booking.id}
+Guest Name: ${booking.guestName}
+Phone / WhatsApp: ${booking.phone}
+Email: ${booking.email}
+Room & Package: ${booking.roomTitle}
+Dates: ${checkInFormatted} to ${checkOutFormatted} (${booking.nights} nights)
+Total Guests: ${booking.guestsCount}
+Total Amount: ${formatRupee(booking.totalAmount)}
+Status: ${booking.status || "CONFIRMED"}
+${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}
+Google Sheet: ${targetSheetLink}
+Timestamp: ${new Date().toLocaleString("en-IN")}`;
 }

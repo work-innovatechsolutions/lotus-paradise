@@ -9,6 +9,7 @@ export interface SiteGeneralSettings {
   mapUrl: string;
   seoKeywords: string;
   googleSheetWebhookUrl?: string;
+  googleSheetUrl?: string;
 }
 
 export interface HomepageSectionConfig {

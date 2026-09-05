@@ -1,4 +1,12 @@
 import React from "react";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Terms of Stay & Cancellation Policy | The Cometas Homestays",
+  description: "Terms and conditions, guest identification rules, and cancellation policies for The Cometas Homestays in Latpanchar.",
+  canonicalUrl: "https://thecometas.com/terms",
+});
 
 export default function TermsPage() {
   return (

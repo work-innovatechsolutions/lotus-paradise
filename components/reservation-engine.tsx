@@ -66,6 +66,11 @@ export function ReservationEngine() {
     if (urlRoomId) setSelectedRoomId(urlRoomId);
   }, [urlPropId, urlRoomId]);
 
+  // Scroll to top on step progression
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [step]);
+
   // Filtered rooms based on selected location/property
   const availableRooms = useMemo(() => {
     if (selectedPropId === "all") {
@@ -148,13 +153,6 @@ export function ReservationEngine() {
     try {
       const created = await BookingService.createBooking(bookingPayload);
       setBookingConfirmed(created);
-
-      // Trigger automatic Gmail SMTP booking confirmation email to guest and admin
-      fetch("/api/send-booking-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking: created }),
-      }).catch((err) => console.warn("Email dispatch error:", err));
     } catch {
       setBookingConfirmed(bookingPayload);
 

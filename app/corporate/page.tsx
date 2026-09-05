@@ -1,6 +1,22 @@
 import React from "react";
 import CorporateSection from "@/components/corporate-section";
 import TestimonialsSlider from "@/components/testimonials-slider";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Corporate Mountain Retreats & Team Offsites | The Cometas Homestays",
+  description:
+    "Host productive executive offsites, hackathons, and wellness retreats in the Himalayas at The Cometas. High-speed optical WiFi, gourmet dining, starlit lawn bonfires, and complete privacy.",
+  canonicalUrl: "https://thecometas.com/corporate",
+  keywords: [
+    "Corporate Offsite North Bengal",
+    "Mountain Workation Darjeeling",
+    "Team Building Retreat Himalayas",
+    "Corporate Homestay Booking",
+    "Executive Retreat Latpanchar",
+  ],
+});
 
 export default function CorporatePage() {
   return (

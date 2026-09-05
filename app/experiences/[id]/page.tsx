@@ -4,11 +4,30 @@ import Link from "next/link";
 import { EXPERIENCES } from "@/lib/data";
 import { notFound } from "next/navigation";
 import { Clock, Calendar, ArrowLeft, CheckCircle2, Compass } from "lucide-react";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
 
 export function generateStaticParams() {
   return EXPERIENCES.map((exp) => ({
     id: exp.slug,
   }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const exp = EXPERIENCES.find((e) => e.slug === id || e.id === id);
+
+  if (!exp) {
+    return constructMetadata({ title: "Experience | The Cometas Homestays" });
+  }
+
+  return constructMetadata({
+    title: `${exp.title} | The Cometas Homestays Experiences`,
+    description: exp.shortDesc || exp.fullDesc?.slice(0, 160),
+    image: exp.image,
+    canonicalUrl: `https://thecometas.com/experiences/${exp.slug}`,
+    keywords: [exp.title, "Latpanchar Activities", "Himalayan Experiences", "The Cometas"],
+  });
 }
 
 export default async function ExperienceDetailPage({ params }: { params: Promise<{ id: string }> }) {

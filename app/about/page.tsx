@@ -2,6 +2,22 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ShieldCheck, Heart, Coffee, Mountain, Feather, ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Our Heritage, Story & Philosophy | The Cometas Homestays",
+  description:
+    "Learn about the history of Latpanchar (4,500 ft) and the founding of The Cometas Homestays. British colonial legacy, pristine birding biodiversity, and authentic mountain hospitality.",
+  canonicalUrl: "https://thecometas.com/about",
+  keywords: [
+    "About The Cometas",
+    "Latpanchar Heritage",
+    "History of Latpanchar",
+    "Cinchona Plantation Kurseong",
+    "Homestay in Latpanchar Story",
+  ],
+});
 
 export default function AboutPage() {
   return (

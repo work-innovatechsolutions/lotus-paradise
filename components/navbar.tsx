@@ -59,7 +59,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
 
         {/* LOGO — The Cometas */}
-        <Link href="/" className="navbar-logo flex items-center group" aria-label="The Cometas — Lotus Paradise Homepage">
+        <Link href="/" className="navbar-logo flex items-center group" aria-label="The Cometas Homestays">
           <div
             className={`relative transition-all duration-300 flex items-center justify-center ${
               isScrolled

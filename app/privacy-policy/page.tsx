@@ -1,4 +1,12 @@
 import React from "react";
+import type { Metadata } from "next";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Privacy Policy | The Cometas Homestays",
+  description: "Privacy policy and data protection practices for guests of The Cometas Homestays in Latpanchar, North Bengal.",
+  canonicalUrl: "https://thecometas.com/privacy-policy",
+});
 
 export default function PrivacyPolicyPage() {
   return (
