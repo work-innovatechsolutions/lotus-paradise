@@ -61,6 +61,9 @@ function getOrCreateBookingsSheet() {
     sheet.setRowHeight(1, 36);
     sheet.setFrozenRows(1);
   }
+  // Always ensure phone & timestamp columns are plain text (fixes existing sheets too)
+  sheet.getRange("A:A").setNumberFormat("@"); // Timestamp
+  sheet.getRange("D:D").setNumberFormat("@"); // Phone Number
   return sheet;
 }
 
@@ -95,7 +98,7 @@ function rowFromBooking(b) {
     b.createdAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     b.bookingNumber || b.id || "N/A",
     b.guestName || "Guest",
-    b.phone || "N/A",
+    String(b.phone || "N/A"),
     b.email || "N/A",
     b.roomTitle || "Standard Suite",
     b.checkIn || "",
@@ -145,6 +148,10 @@ function getOrCreateCorporateSheet() {
     sheet.setRowHeight(1, 36);
     sheet.setFrozenRows(1);
   }
+  // Always ensure phone, ID & timestamp columns are plain text (fixes existing sheets too)
+  sheet.getRange("A:A").setNumberFormat("@"); // Timestamp
+  sheet.getRange("B:B").setNumberFormat("@"); // Lead Ref ID
+  sheet.getRange("F:F").setNumberFormat("@"); // Phone Number
   return sheet;
 }
 
@@ -180,7 +187,7 @@ function rowFromCorporateLead(lead) {
     lead.company || "N/A",
     lead.contactPerson || "N/A",
     lead.email || "N/A",
-    lead.phone || "N/A",
+    String(lead.phone || "N/A"),
     Number(lead.employeesCount || 10),
     lead.preferredDates || "Flexible",
     lead.nights ? (lead.nights + " Nights") : "",
@@ -191,7 +198,32 @@ function rowFromCorporateLead(lead) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. WEBHOOK HANDLER (doPost)
+// 3. SAFE ROW WRITE HELPERS
+// appendRow() triggers formula parsing BEFORE format can be set.
+// These helpers pre-format text columns FIRST, then write values via setValues().
+// This is the only reliable way to store "+91 ..." as text, not a formula.
+// ─────────────────────────────────────────────────────────────────────────────
+function safeAppendCorporateRow(sheet, rowData) {
+  var newRow = sheet.getLastRow() + 1;
+  // Pre-format text columns BEFORE writing (prevents +91 formula parse error)
+  sheet.getRange(newRow, 1).setNumberFormat("@"); // Timestamp
+  sheet.getRange(newRow, 2).setNumberFormat("@"); // Lead Ref ID
+  sheet.getRange(newRow, 6).setNumberFormat("@"); // Phone Number (col F)
+  // Now write — text cells will be stored safely
+  sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+}
+
+function safeAppendBookingRow(sheet, rowData) {
+  var newRow = sheet.getLastRow() + 1;
+  // Pre-format text columns BEFORE writing
+  sheet.getRange(newRow, 1).setNumberFormat("@"); // Timestamp
+  sheet.getRange(newRow, 4).setNumberFormat("@"); // Phone Number (col D)
+  // Now write
+  sheet.getRange(newRow, 1, 1, rowData.length).setValues([rowData]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. WEBHOOK HANDLER (doPost)
 // ─────────────────────────────────────────────────────────────────────────────
 function doPost(e) {
   try {
@@ -199,8 +231,6 @@ function doPost(e) {
     var data = JSON.parse(rawData);
 
     // ROUTE A: CORPORATE LEADS
-    // Matches on: explicit action field, type field, or presence of a 'lead' object
-    // (Regular booking payloads never contain a 'lead' key)
     var isCorporate =
       data.action === "add_corporate_lead" ||
       data.action === "batch_corporate_leads" ||
@@ -212,7 +242,7 @@ function doPost(e) {
 
       if (data.action === "batch_corporate_leads" && Array.isArray(data.leads)) {
         data.leads.forEach(function(lead) {
-          corpSheet.appendRow(rowFromCorporateLead(lead));
+          safeAppendCorporateRow(corpSheet, rowFromCorporateLead(lead));
           formatCorporateRow(corpSheet, corpSheet.getLastRow());
         });
         return ContentService.createTextOutput(
@@ -221,7 +251,7 @@ function doPost(e) {
       }
 
       var lead = data.lead || data;
-      corpSheet.appendRow(rowFromCorporateLead(lead));
+      safeAppendCorporateRow(corpSheet, rowFromCorporateLead(lead));
       formatCorporateRow(corpSheet, corpSheet.getLastRow());
 
       return ContentService.createTextOutput(
@@ -243,7 +273,7 @@ function doPost(e) {
         bookSheet.deleteRows(2, lastRow - 1);
       }
       data.bookings.forEach(function(b) {
-        bookSheet.appendRow(rowFromBooking(b));
+        safeAppendBookingRow(bookSheet, rowFromBooking(b));
         formatBookingRow(bookSheet, bookSheet.getLastRow());
       });
       return ContentService.createTextOutput(
@@ -253,7 +283,7 @@ function doPost(e) {
 
     if (data.action === "batch_sync" && Array.isArray(data.bookings)) {
       data.bookings.forEach(function(b) {
-        bookSheet.appendRow(rowFromBooking(b));
+        safeAppendBookingRow(bookSheet, rowFromBooking(b));
         formatBookingRow(bookSheet, bookSheet.getLastRow());
       });
       return ContentService.createTextOutput(
@@ -262,7 +292,7 @@ function doPost(e) {
     }
 
     var booking = data.booking || data;
-    bookSheet.appendRow(rowFromBooking(booking));
+    safeAppendBookingRow(bookSheet, rowFromBooking(booking));
     formatBookingRow(bookSheet, bookSheet.getLastRow());
 
     return ContentService.createTextOutput(
@@ -282,7 +312,7 @@ function doPost(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. HEALTH CHECK
+// 5. HEALTH CHECK
 // ─────────────────────────────────────────────────────────────────────────────
 function doGet(e) {
   return ContentService.createTextOutput(
@@ -291,7 +321,7 @@ function doGet(e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. SPREADSHEET MENU & UTILITIES
+// 6. SPREADSHEET MENU & UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
@@ -310,9 +340,8 @@ function initializeTabs() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. TEST FUNCTION
+// 7. TEST FUNCTION
 //    Select "testCorporateTab" from the function dropdown and click Run (▶)
-//    to instantly create the Corporate Leads tab and add a dummy row.
 // ─────────────────────────────────────────────────────────────────────────────
 function testCorporateTab() {
   var sheet = getOrCreateCorporateSheet();
@@ -330,12 +359,13 @@ function testCorporateTab() {
     status: "NEW",
     requirements: "Bonfire, AV Setup -- DELETE THIS TEST ROW"
   };
-  sheet.appendRow(rowFromCorporateLead(dummyLead));
+  safeAppendCorporateRow(sheet, rowFromCorporateLead(dummyLead));
   formatCorporateRow(sheet, sheet.getLastRow());
   SpreadsheetApp.getActiveSpreadsheet().toast(
-    "Corporate Leads tab created & test row added! Delete the test row when done.",
+    "Test row added! +91 phone should show correctly now. Delete when done.",
     "Test Passed",
     10
   );
 }
+
 
