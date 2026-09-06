@@ -176,10 +176,10 @@ export function ReservationEngine() {
   };
 
   return (
-    <div className="space-y-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+    <div className="space-y-16 print:space-y-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 print:p-0 print:m-0 print:max-w-none print:w-full print:space-y-0">
         {/* ── HEADER ── */}
-        <div className="text-center max-w-3xl mx-auto space-y-3 pt-6">
+        <div className="text-center max-w-3xl mx-auto space-y-3 pt-6 print:hidden">
           <span className="text-xs font-accent uppercase tracking-widest text-[#C62828] font-bold">
             Direct Reservation Engine
           </span>
@@ -192,7 +192,7 @@ export function ReservationEngine() {
         </div>
 
         {/* ── STEP INDICATOR ── */}
-        <div className="flex items-center justify-center max-w-3xl mx-auto">
+        <div className="flex items-center justify-center max-w-3xl mx-auto print:hidden">
           {[
             { num: 1, label: "Dates, Location & Room" },
             { num: 2, label: "Package & Tariff" },
@@ -924,32 +924,32 @@ export function ReservationEngine() {
               </div>
             </div>
 
-            <div className="bg-[#2C2473] text-white rounded-2xl p-4 space-y-1 text-xs font-accent">
+            <div className="bg-[#FBF8F3] text-[#1F1F1F] rounded-2xl p-5 space-y-2 text-xs font-accent border-2 border-[#C89D45]/30 shadow-sm">
               <div className="flex justify-between">
-                <span>Destination:</span>
-                <span className="font-bold text-[#F3D27A]">{selectedProperty?.name || "Lotus Paradise"}</span>
+                <span className="text-gray-600 font-medium">Destination:</span>
+                <span className="font-bold text-[#2C2473]">{selectedProperty?.name || "Lotus Paradise"}</span>
               </div>
               <div className="flex justify-between">
-                <span>Selected Room:</span>
+                <span className="text-gray-600 font-medium">Selected Room:</span>
                 <span className="font-bold text-[#C89D45]">{selectedRoom?.title}</span>
               </div>
               <div className="flex justify-between">
-                <span>Selected Package:</span>
-                <span className="font-bold text-[#F3D27A]">
+                <span className="text-gray-600 font-medium">Selected Package:</span>
+                <span className="font-bold text-[#2C2473]">
                   {selectedPackage === "premium" ? "Premium Package" : "Standard Package"} (Fooding &amp; Lodging)
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Guests &amp; Duration:</span>
-                <span>{guestsCount} Guest(s) · {nights} Night(s) ({checkIn} to {checkOut})</span>
+                <span className="text-gray-600 font-medium">Guests &amp; Duration:</span>
+                <span className="font-medium text-gray-800">{guestsCount} Guest(s) · {nights} Night(s) ({checkIn} to {checkOut})</span>
               </div>
               <div className="flex justify-between">
-                <span>Rate per Pax:</span>
-                <span>₹{pricePerPaxPerDay} / pax / day (All Meals Included)</span>
+                <span className="text-gray-600 font-medium">Rate per Pax:</span>
+                <span className="font-medium text-gray-800">₹{pricePerPaxPerDay} / pax / day (All Meals Included)</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-white/10">
-                <span>Final Total Amount:</span>
-                <span className="text-[#C89D45] text-base">{formatPrice(grandTotal)}</span>
+              <div className="flex justify-between items-center text-sm font-bold text-[#1F1F1F] pt-2.5 border-t border-[#C89D45]/20">
+                <span className="text-xs uppercase tracking-wider text-[#7A5818] font-bold">Final Total Amount:</span>
+                <span className="text-[#C62828] text-xl font-serif font-extrabold">{formatPrice(grandTotal)}</span>
               </div>
             </div>
 
@@ -973,67 +973,135 @@ export function ReservationEngine() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            STEP 5: CONFIRMATION RECEIPT
+            STEP 5: CONFIRMATION RECEIPT / PRINTABLE INVOICE CARD
         ══════════════════════════════════════════════════════════════════════ */}
         {step === 5 && bookingConfirmed && (
-          <div className="max-w-3xl mx-auto bg-white rounded-3xl p-8 md:p-12 border-2 border-[#C89D45] shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-            <div className="text-center space-y-3 border-b border-[#C89D45]/30 pb-6">
-              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                <Check className="w-8 h-8" />
+          <div
+            id="printable-invoice"
+            className="max-w-3xl mx-auto bg-white rounded-3xl p-8 md:p-12 border-2 border-[#C89D45] shadow-2xl space-y-7 animate-in zoom-in-95 duration-300 print:shadow-none print:border print:border-[#C89D45] print:p-8 print:rounded-2xl print:max-w-none print:w-full print:m-0 print:space-y-6"
+          >
+            {/* OFFICIAL RECEIPT HEADER (Prints cleanly at top of invoice) */}
+            <div className="flex items-center justify-between border-b border-[#C89D45]/30 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="relative w-12 h-12 rounded-xl bg-white p-1 border border-[#C89D45]/40 flex items-center justify-center shrink-0">
+                  <Image
+                    src="/The Cometas Logo.png"
+                    alt="The Cometas Homestay"
+                    width={40}
+                    height={40}
+                    className="object-contain"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#1F1F1F] leading-tight">
+                    The Cometas Homestays
+                  </h3>
+                  <p className="text-[11px] font-sans text-gray-500">
+                    Boutique Mountain Retreat · Latpanchar (4,500 ft), Darjeeling
+                  </p>
+                </div>
               </div>
-              <span className="text-xs font-accent uppercase tracking-widest text-[#C62828] font-bold">
-                Reservation Confirmed
-              </span>
-              <h2 className="font-serif text-3xl font-bold text-[#1F1F1F]">
-                Welcome to Lotus Paradise Homestay!
-              </h2>
-              <p className="font-mono text-sm font-bold text-[#2C2473] bg-gray-100 inline-block px-4 py-1.5 rounded-full">
-                Booking Ref: {bookingConfirmed.bookingNumber}
-              </p>
+
+              <div className="text-right">
+                <span className="text-[10px] font-accent uppercase tracking-widest text-[#C62828] font-bold block">
+                  Official Booking Receipt
+                </span>
+                <span className="font-mono text-xs text-gray-600">
+                  Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              </div>
             </div>
 
-            {/* Invoice details grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-sans text-[#1F1F1F]">
-              <div className="space-y-2">
-                <h4 className="font-accent text-xs font-bold uppercase text-[#C62828]">Guest Information</h4>
+            {/* CONFIRMATION STATUS BANNER */}
+            <div className="text-center space-y-2 border-b border-[#C89D45]/20 pb-5">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto print:w-10 print:h-10">
+                <Check className="w-6 h-6 print:w-5 print:h-5" />
+              </div>
+              <span className="text-xs font-accent uppercase tracking-widest text-[#C62828] font-bold block">
+                Reservation Confirmed
+              </span>
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#1F1F1F]">
+                Welcome to {selectedProperty?.name || "Lotus Paradise Homestay"}!
+              </h2>
+              <div className="inline-flex items-center gap-2 font-mono text-xs sm:text-sm font-bold text-[#2C2473] bg-[#FBF8F3] px-4 py-1.5 rounded-full border border-[#C89D45]/30 shadow-sm">
+                <span>Booking Reference:</span>
+                <span className="text-[#C62828]">{bookingConfirmed.bookingNumber}</span>
+              </div>
+            </div>
+
+            {/* INVOICE DETAILS GRID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-xs font-sans text-[#1F1F1F]">
+              <div className="space-y-2 bg-[#FBF8F3] p-4 sm:p-5 rounded-2xl border border-[#C89D45]/25">
+                <h4 className="font-accent text-xs font-bold uppercase text-[#C62828] border-b border-[#C89D45]/20 pb-1.5">
+                  Guest Information
+                </h4>
                 <p><strong>Name:</strong> {bookingConfirmed.guestName}</p>
                 <p><strong>Email:</strong> {bookingConfirmed.email}</p>
                 <p><strong>Phone:</strong> {bookingConfirmed.phone}</p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-accent text-xs font-bold uppercase text-[#C62828]">Stay Breakdown</h4>
+              <div className="space-y-2 bg-[#FBF8F3] p-4 sm:p-5 rounded-2xl border border-[#C89D45]/25">
+                <h4 className="font-accent text-xs font-bold uppercase text-[#C62828] border-b border-[#C89D45]/20 pb-1.5">
+                  Stay Breakdown
+                </h4>
                 <p><strong>Room Reserved:</strong> {bookingConfirmed.roomTitle}</p>
+                <p><strong>Package:</strong> {selectedPackage === "premium" ? "Premium Package" : "Standard Package"} (Fooding &amp; Lodging)</p>
                 <p><strong>Check-In:</strong> {bookingConfirmed.checkIn}</p>
                 <p><strong>Check-Out:</strong> {bookingConfirmed.checkOut} ({bookingConfirmed.nights} Nights)</p>
                 <p><strong>Guests:</strong> {bookingConfirmed.guestsCount} Guests</p>
               </div>
             </div>
 
-            <div className="bg-[#2C2473] text-white rounded-2xl p-6 flex items-center justify-between">
+            {/* TOTAL AMOUNT & STATUS CARD (Light luxury ivory background) */}
+            <div className="bg-[#FBF8F3] text-[#1F1F1F] rounded-2xl p-5 sm:p-6 flex items-center justify-between border-2 border-[#C89D45]/40 shadow-sm print:bg-[#FBF8F3] print:border-[#C89D45]/40">
               <div>
-                <span className="text-xs font-accent text-gray-300 block">Total Amount Payable:</span>
-                <span className="font-serif text-3xl font-bold text-[#C89D45]">
+                <span className="text-xs font-accent uppercase tracking-wider text-[#7A5818] font-bold block">
+                  Total Amount Payable:
+                </span>
+                <span className="font-serif text-3xl sm:text-4xl font-extrabold text-[#C62828] block mt-0.5">
                   {formatPrice(bookingConfirmed.totalAmount)}
                 </span>
+                <span className="text-xs text-gray-600 block mt-0.5 font-sans font-medium">
+                  All Meals &amp; Lodging Included
+                </span>
               </div>
-              <span className="bg-emerald-600 text-white text-[11px] font-accent font-bold uppercase px-3 py-1 rounded-full">
-                Confirmed
-              </span>
+              <div className="text-right">
+                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-accent font-bold uppercase px-4 py-1.5 rounded-full inline-block shadow-sm">
+                  Confirmed
+                </span>
+                <span className="text-[11px] text-gray-500 block mt-1.5 font-medium">
+                  Verified Booking
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-200">
+            {/* HOMESTAY ADDRESS & CONTACT FOOTNOTE (Printed on invoice receipt) */}
+            <div className="text-[11px] text-gray-600 border-t border-[#C89D45]/25 pt-4 space-y-1.5">
+              <p>
+                <strong>Homestay Address:</strong> Upper Latpanchar Forest Road, Kurseong Hill Division, Darjeeling District, West Bengal - 734008
+              </p>
+              <p>
+                <strong>Contact Desk:</strong> +91 98320 12345 / +91 97323 00111 · <strong>Email:</strong> thecometas2025@gmail.com
+              </p>
+              <p className="text-[10px] text-gray-500 italic pt-1">
+                * Check-in: 12:00 PM | Check-out: 10:00 AM. Please present a valid government-approved photo ID (Aadhaar / Passport / Voter ID) for each adult guest at check-in.
+              </p>
+            </div>
+
+            {/* ACTION BUTTONS (Hidden when printed) */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-200 print:hidden">
               <button
+                type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center gap-2 border border-gray-300 hover:bg-gray-100 text-[#1F1F1F] px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase transition-colors"
+                className="inline-flex items-center gap-2 bg-white border-2 border-[#C89D45] hover:bg-[#C89D45]/10 text-[#1F1F1F] px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase transition-all shadow-sm active:scale-95"
               >
-                <Printer className="w-4 h-4 text-[#C89D45]" />
+                <Printer className="w-4 h-4 text-[#C62828]" />
                 <span>Print Invoice Receipt</span>
               </button>
 
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 bg-[#2C2473] hover:bg-[#1F1F1F] text-white px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase transition-colors"
+                className="inline-flex items-center gap-2 bg-[#2C2473] hover:bg-[#1F1F1F] text-white px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase transition-all shadow-sm active:scale-95"
               >
                 <Sparkles className="w-4 h-4 text-[#C89D45]" />
                 <span>Return to Home</span>
@@ -1044,7 +1112,9 @@ export function ReservationEngine() {
       </div>
 
       {/* ── FAQ ACCORDION AT THE BOTTOM ── */}
-      <FAQAccordion />
+      <div className="print:hidden">
+        <FAQAccordion />
+      </div>
     </div>
   );
 }

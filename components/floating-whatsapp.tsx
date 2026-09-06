@@ -52,7 +52,7 @@ export default function FloatingWhatsApp() {
   };
 
   return (
-    <div className="fixed bottom-20 md:bottom-22 right-5 sm:right-6 z-50 flex flex-col items-end pointer-events-auto transition-all duration-300">
+    <div id="floating-whatsapp" className="fixed bottom-20 md:bottom-22 right-5 sm:right-6 z-50 flex flex-col items-end pointer-events-auto transition-all duration-300 print:hidden">
       {/* ── LUXURY CHAT POPOVER CARD ── */}
       {isOpen && (
         <div className="mb-3 w-[90vw] sm:w-96 bg-[#1a1442] rounded-3xl border-2 border-[#C89D45] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300">

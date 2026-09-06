@@ -545,3 +545,70 @@ body {
   background: rgba(200, 157, 69, 0.8);
 }
 
+/* ================================================
+   PRINT STYLES — ISOLATED INVOICE RECEIPT PRINTING
+   Only #printable-invoice is printed. All navigation,
+   headers, footers, and floating widgets are hidden.
+   ================================================ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Global hide for non-printable layout elements */
+  header,
+  footer,
+  nav,
+  aside,
+  #floating-whatsapp,
+  [data-floating-whatsapp],
+  .print\:hidden,
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Reset main wrapper margins and paddings */
+  main,
+  div[class*="min-h-screen"],
+  div[class*="pt-28"] {
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* Force printable invoice card to be the sole printed content */
+  #printable-invoice {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 24px 28px !important;
+    border: 1.5px solid #C89D45 !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-invoice * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

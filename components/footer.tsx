@@ -26,7 +26,7 @@ export default function Footer() {
 
   return (
     <footer
-      className="relative pt-20 pb-10 overflow-hidden"
+      className="relative pt-20 pb-10 overflow-hidden print:hidden"
       style={{
         /* Warm ivory → blush rose → soft gold — light, airy, premium */
         background: `
