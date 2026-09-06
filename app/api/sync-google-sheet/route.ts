@@ -54,7 +54,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const payload = body.action ? body : { action: "add_booking", booking: body.booking || body };
+    let payload = body;
+    if (!body.action) {
+      if (body.lead || (body.company && !body.roomTitle)) {
+        payload = { action: "add_corporate_lead", lead: body.lead || body };
+      } else {
+        payload = { action: "add_booking", booking: body.booking || body };
+      }
+    }
 
     // Server-side fetch to Google Apps Script - No CORS issues, automatically follows 302 redirects
     const response = await fetch(targetUrl, {

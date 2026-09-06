@@ -220,4 +220,148 @@ export const GoogleSheetService = {
       };
     }
   },
+
+  /**
+   * Formats a corporate offsite lead into clean spreadsheet payload
+   */
+  formatCorporatePayload(lead: any): {
+    id: string;
+    company: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    employeesCount: number | string;
+    preferredDates: string;
+    nights?: number | string;
+    budgetRange: string;
+    status: string;
+    requirements: string;
+    createdAt: string;
+  } {
+    return {
+      id: lead.id || `corp-${Date.now()}`,
+      company: lead.company || "N/A",
+      contactPerson: lead.contactPerson || "N/A",
+      email: lead.email || "N/A",
+      phone: lead.phone || "N/A",
+      employeesCount: lead.employeesCount || 10,
+      preferredDates: lead.preferredDates || "Flexible",
+      nights: lead.nights || "",
+      budgetRange: lead.budgetRange || "₹2L - ₹3L",
+      status: (lead.status || "NEW").toUpperCase(),
+      requirements: lead.requirements || "None",
+      createdAt: lead.createdAt ? new Date(lead.createdAt).toLocaleString("en-IN") : new Date().toLocaleString("en-IN"),
+    };
+  },
+
+  /**
+   * Syncs a corporate retreat lead to the Corporate Leads tab in Google Sheet
+   */
+  async syncCorporateLeadToSheet(
+    lead: any,
+    customUrl?: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    const payload = this.formatCorporatePayload(lead);
+
+    // 1. Try server-side API proxy first (bypasses browser CORS completely)
+    try {
+      const serverRes = await fetch("/api/sync-google-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_corporate_lead",
+          lead: payload,
+          webhookUrl: customUrl || undefined,
+        }),
+      });
+
+      const json = await serverRes.json();
+      if (serverRes.ok && json.success) {
+        return { success: true, message: "Corporate lead synced to Google Sheet" };
+      }
+      if (serverRes.status === 400 && json.error?.includes("not configured")) {
+        return { success: false, error: json.error };
+      }
+    } catch {
+      // fallback to direct
+    }
+
+    // 2. Direct fetch fallback
+    const url = customUrl || (await this.getWebhookUrl());
+    if (!url) {
+      return { success: false, error: "No Google Sheet Webhook URL configured. Please set in Admin Settings." };
+    }
+
+    try {
+      await fetch(url, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "add_corporate_lead",
+          lead: payload,
+        }),
+      });
+
+      return { success: true, message: "Corporate lead synced to Google Sheet" };
+    } catch (err: any) {
+      console.warn("Corporate lead Google Sheet sync error:", err);
+      return { success: false, error: err.message || "Failed to sync" };
+    }
+  },
+
+  /**
+   * Syncs all corporate leads in batch to the Google Sheet
+   */
+  async syncAllCorporateLeadsToSheet(
+    leads: any[],
+    customUrl?: string
+  ): Promise<{ success: boolean; count: number; error?: string }> {
+    const rows = leads.map((l) => this.formatCorporatePayload(l));
+
+    // 1. Try server-side API proxy first
+    try {
+      const serverRes = await fetch("/api/sync-google-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "batch_corporate_leads",
+          leads: rows,
+          webhookUrl: customUrl || undefined,
+        }),
+      });
+
+      const json = await serverRes.json();
+      if (serverRes.ok && json.success) {
+        return { success: true, count: rows.length };
+      }
+    } catch {}
+
+    const url = customUrl || (await this.getWebhookUrl());
+    if (!url) {
+      return { success: false, count: 0, error: "No Google Sheet Webhook URL configured." };
+    }
+
+    try {
+      await fetch(url, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "batch_corporate_leads",
+          leads: rows,
+        }),
+      });
+
+      return { success: true, count: rows.length };
+    } catch (err: any) {
+      console.warn("Corporate leads batch sync error:", err);
+      return { success: false, count: 0, error: err.message || "Failed to sync" };
+    }
+  },
 };
+

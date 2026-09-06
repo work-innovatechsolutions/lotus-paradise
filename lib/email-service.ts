@@ -5,6 +5,11 @@ import {
   getAdminAlertEmailHtml,
   getGuestConfirmationEmailText,
   getAdminAlertEmailText,
+  getCorporateGuestEmailHtml,
+  getCorporateGuestEmailText,
+  getCorporateAdminAlertHtml,
+  getCorporateAdminAlertText,
+  type CorporateLeadEmailData,
 } from "./email-templates";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -244,3 +249,90 @@ export async function testSmtp(config: SmtpConfig, testRecipient?: string): Prom
     };
   }
 }
+
+/**
+ * Sends both Corporate Client acknowledgement and Host notification emails for an offsite inquiry
+ */
+export async function sendCorporateInquiryEmails(
+  lead: CorporateLeadEmailData,
+  customConfig?: SmtpConfig
+): Promise<{
+  success: boolean;
+  guestSent: boolean;
+  adminSent: boolean;
+  error?: string;
+  guestMessageId?: string;
+  adminMessageId?: string;
+}> {
+  const config = customConfig || (await getSmtpConfig());
+
+  if (!config) {
+    console.warn("Gmail SMTP is not configured for corporate inquiry dispatch.");
+    return {
+      success: false,
+      guestSent: false,
+      adminSent: false,
+      error: "Gmail SMTP credentials not configured. Please add Gmail User and App Password.",
+    };
+  }
+
+  const transporter = createSmtpTransporter(config);
+  const fromAddress = `"${config.fromName || "The Cometas Himalayan Retreat"}" <${config.user}>`;
+
+  let guestSent = false;
+  let adminSent = false;
+  let guestMessageId: string | undefined;
+  let adminMessageId: string | undefined;
+
+  // 1. Send Corporate Client Acknowledgment Email
+  if (lead.email && lead.email.includes("@")) {
+    try {
+      const guestHtml = getCorporateGuestEmailHtml(lead);
+      const guestText = getCorporateGuestEmailText(lead);
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: lead.email.trim(),
+        replyTo: config.adminEmail || config.user,
+        subject: `Proposal Request Acknowledged: Corporate Offsite at The Cometas (${lead.company})`,
+        text: guestText,
+        html: guestHtml,
+      });
+      guestSent = true;
+      guestMessageId = info.messageId;
+      console.log(`✅ Corporate inquiry confirmation sent to ${lead.email} (ID: ${info.messageId})`);
+    } catch (err: any) {
+      console.error(`❌ Failed to send corporate client email to ${lead.email}:`, err.message);
+    }
+  }
+
+  // 2. Send Admin Notification Email
+  const adminTarget = config.adminEmail || config.user;
+  if (adminTarget && adminTarget.includes("@")) {
+    try {
+      const adminHtml = getCorporateAdminAlertHtml(lead, "http://localhost:3000");
+      const adminText = getCorporateAdminAlertText(lead);
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        to: adminTarget.trim(),
+        replyTo: lead.email && lead.email.includes("@") ? lead.email.trim() : undefined,
+        subject: `⚡ NEW Corporate Offsite Lead: ${lead.company} (${lead.employeesCount} pax) - ${lead.preferredDates || "Dates TBD"}`,
+        text: adminText,
+        html: adminHtml,
+      });
+      adminSent = true;
+      adminMessageId = info.messageId;
+      console.log(`✅ Corporate admin alert sent to ${adminTarget} (ID: ${info.messageId})`);
+    } catch (err: any) {
+      console.error(`❌ Failed to send corporate admin email to ${adminTarget}:`, err.message);
+    }
+  }
+
+  return {
+    success: guestSent || adminSent,
+    guestSent,
+    adminSent,
+    guestMessageId,
+    adminMessageId,
+  };
+}
+

@@ -45,28 +45,45 @@ const ADMIN_MENU_ITEMS = [
 ];
 
 const APPS_SCRIPT_CODE = `/**
- * LOTUS PARADISE HOMESTAY — GOOGLE SHEETS LIVE BOOKING AUTOMATION
+ * THE COMETAS HOMESTAY — GOOGLE SHEETS LIVE AUTOMATION (BOOKINGS & CORPORATE LEADS)
  * Paste this code into: Extensions > Apps Script in your Google Sheet, then Deploy as Web app.
  */
-const SHEET_NAME = "Bookings";
-const HEADERS = ["Timestamp", "Booking ID", "Guest Name", "Phone Number", "Email", "Room Suite", "Check-In", "Check-Out", "Nights", "Guests", "Total Amount (₹)", "Booking Status", "Special Requests"];
+const BOOKINGS_SHEET_NAME = "Bookings";
+const CORPORATE_SHEET_NAME = "Corporate Leads";
 
-function getOrCreateSheet() {
+const BOOKING_HEADERS = ["Timestamp", "Booking ID", "Guest Name", "Phone Number", "Email", "Room Suite", "Check-In", "Check-Out", "Nights", "Guests", "Total Amount (₹)", "Booking Status", "Special Requests"];
+const CORPORATE_HEADERS = ["Timestamp", "Lead Ref ID", "Company Name", "Contact Person", "Work Email", "Phone Number", "Team Size (Pax)", "Preferred Dates", "Nights", "Estimated Budget", "Pipeline Status", "Special Requests / Requirements"];
+
+function getOrCreateBookingsSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  let sheet = ss.getSheetByName(BOOKINGS_SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(BOOKINGS_SHEET_NAME, 0);
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(HEADERS);
-    const hr = sheet.getRange(1, 1, 1, HEADERS.length);
+    sheet.appendRow(BOOKING_HEADERS);
+    const hr = sheet.getRange(1, 1, 1, BOOKING_HEADERS.length);
     hr.setBackground("#2C2473").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
-    sheet.setRowHeight(1, 35);
+    sheet.setRowHeight(1, 36);
     sheet.setFrozenRows(1);
   }
   return sheet;
 }
 
-function formatRow(sheet, rowIdx) {
-  const r = sheet.getRange(rowIdx, 1, 1, HEADERS.length);
+function getOrCreateCorporateSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CORPORATE_SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(CORPORATE_SHEET_NAME, 1);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(CORPORATE_HEADERS);
+    const hr = sheet.getRange(1, 1, 1, CORPORATE_HEADERS.length);
+    hr.setBackground("#8B1E1E").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
+    sheet.setRowHeight(1, 36);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function formatBookingRow(sheet, rowIdx) {
+  const r = sheet.getRange(rowIdx, 1, 1, BOOKING_HEADERS.length);
   r.setFontFamily("Arial").setFontSize(9).setVerticalAlignment("middle");
   sheet.getRange(rowIdx, 1).setHorizontalAlignment("center");
   sheet.getRange(rowIdx, 2).setHorizontalAlignment("center");
@@ -83,35 +100,70 @@ function formatRow(sheet, rowIdx) {
   else if (sv === "CANCELLED") sc.setBackground("#FFEBEE").setFontColor("#C62828").setFontWeight("bold");
 }
 
+function formatCorporateRow(sheet, rowIdx) {
+  const r = sheet.getRange(rowIdx, 1, 1, CORPORATE_HEADERS.length);
+  r.setFontFamily("Arial").setFontSize(9).setVerticalAlignment("middle");
+  sheet.getRange(rowIdx, 1).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 2).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 7).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 8).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 9).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 10).setHorizontalAlignment("center");
+  sheet.getRange(rowIdx, 11).setHorizontalAlignment("center");
+  const sc = sheet.getRange(rowIdx, 11);
+  const sv = String(sc.getValue()).toUpperCase();
+  if (sv === "NEW") sc.setBackground("#FEF3C7").setFontColor("#B45309").setFontWeight("bold");
+  else if (sv === "PROPOSAL_SENT") sc.setBackground("#E0F2FE").setFontColor("#0369A1").setFontWeight("bold");
+  else if (sv === "CLOSED_WON") sc.setBackground("#D1FAE5").setFontColor("#065F46").setFontWeight("bold");
+}
+
 function rowFromBooking(b) {
-  return [b.createdAt || new Date().toLocaleString("en-IN"), b.bookingNumber || "N/A", b.guestName || "Guest", b.phone || "N/A", b.email || "N/A", b.roomTitle || "Suite", b.checkIn || "", b.checkOut || "", b.nights || 1, b.guestsCount || 1, Number(b.totalAmount || 0), (b.status || "CONFIRMED").toUpperCase(), b.specialRequests || "None"];
+  return [b.createdAt || new Date().toLocaleString("en-IN"), b.bookingNumber || b.id || "N/A", b.guestName || "Guest", b.phone || "N/A", b.email || "N/A", b.roomTitle || "Standard Suite", b.checkIn || "", b.checkOut || "", b.nights || 1, b.guestsCount || 1, Number(b.totalAmount || 0), (b.status || "CONFIRMED").toUpperCase(), b.specialRequests || "None"];
+}
+
+function rowFromCorporateLead(lead) {
+  return [lead.createdAt || new Date().toLocaleString("en-IN"), lead.id || ("CORP-" + Date.now().toString().slice(-6)), lead.company || "N/A", lead.contactPerson || "N/A", lead.email || "N/A", lead.phone || "N/A", Number(lead.employeesCount || 10), lead.preferredDates || "Flexible", lead.nights ? (lead.nights + " Nights") : "", lead.budgetRange || "₹2L - ₹3L", (lead.status || "NEW").toUpperCase(), lead.requirements || "None"];
 }
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const sheet = getOrCreateSheet();
+    const isCorp = data.action === "add_corporate_lead" || data.action === "batch_corporate_leads" || data.type === "corporate" || Boolean(data.lead) || (Boolean(data.company) && !data.roomTitle);
+
+    if (isCorp) {
+      const corpSheet = getOrCreateCorporateSheet();
+      if (data.action === "batch_corporate_leads" && Array.isArray(data.leads)) {
+        data.leads.forEach(function(l) { corpSheet.appendRow(rowFromCorporateLead(l)); formatCorporateRow(corpSheet, corpSheet.getLastRow()); });
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.leads.length, target: "Corporate Leads" })).setMimeType(ContentService.MimeType.JSON);
+      }
+      const lead = data.lead || data;
+      corpSheet.appendRow(rowFromCorporateLead(lead));
+      formatCorporateRow(corpSheet, corpSheet.getLastRow());
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Corporate lead recorded", target: "Corporate Leads" })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const bookSheet = getOrCreateBookingsSheet();
     if ((data.action === "reset_and_sync" || data.action === "clear_and_sync") && Array.isArray(data.bookings)) {
-      const lastRow = sheet.getLastRow();
-      if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
-      data.bookings.forEach(function(b) { sheet.appendRow(rowFromBooking(b)); formatRow(sheet, sheet.getLastRow()); });
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length })).setMimeType(ContentService.MimeType.JSON);
+      const lastRow = bookSheet.getLastRow();
+      if (lastRow > 1) bookSheet.deleteRows(2, lastRow - 1);
+      data.bookings.forEach(function(b) { bookSheet.appendRow(rowFromBooking(b)); formatBookingRow(bookSheet, bookSheet.getLastRow()); });
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length, target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
     }
     if (data.action === "batch_sync" && Array.isArray(data.bookings)) {
-      data.bookings.forEach(function(b) { sheet.appendRow(rowFromBooking(b)); formatRow(sheet, sheet.getLastRow()); });
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length })).setMimeType(ContentService.MimeType.JSON);
+      data.bookings.forEach(function(b) { bookSheet.appendRow(rowFromBooking(b)); formatBookingRow(bookSheet, bookSheet.getLastRow()); });
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length, target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
     }
     const b = data.booking || data;
-    sheet.appendRow(rowFromBooking(b));
-    formatRow(sheet, sheet.getLastRow());
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Booking recorded" })).setMimeType(ContentService.MimeType.JSON);
+    bookSheet.appendRow(rowFromBooking(b));
+    formatBookingRow(bookSheet, bookSheet.getLastRow());
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Booking recorded", target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput("Lotus Paradise Booking Automation Webhook is ACTIVE!");
+  return ContentService.createTextOutput("The Cometas Homestay — Bookings & Corporate Leads Webhook is ACTIVE!");
 }`;
 
 export default function AdminSettingsPage() {

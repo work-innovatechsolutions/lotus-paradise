@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { Users, Briefcase, Flame, Utensils, Mountain, ShieldCheck, Check, Send } from "lucide-react";
+import { Users, Briefcase, Flame, Utensils, Mountain, ShieldCheck, Check, Send, Loader2, MailCheck } from "lucide-react";
+import CorporateDatePicker from "./corporate-date-picker";
 
 export default function CorporateSection() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -13,22 +14,34 @@ export default function CorporateSection() {
     phone: "",
     employeesCount: "15",
     preferredDates: "",
+    startDate: "",
+    endDate: "",
+    nights: 0,
     budgetRange: "₹2L - ₹3L",
     requirements: "",
   });
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [emailDispatched, setEmailDispatched] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
-      await fetch("/api/corporate-leads", {
+      const res = await fetch("/api/corporate-leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      const data = await res.json();
+      if (data?.emailSent) {
+        setEmailDispatched(true);
+      }
       setSubmitted(true);
     } catch {
       setSubmitted(true);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -131,7 +144,7 @@ export default function CorporateSection() {
       {/* CORPORATE ENQUIRY MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-[#FBF8F3] rounded-3xl p-6 md:p-8 max-w-lg w-full text-[#1F1F1F] border border-[#C89D45] shadow-2xl relative">
+          <div className="bg-[#FBF8F3] rounded-3xl p-6 md:p-8 max-w-lg w-full text-[#1F1F1F] border border-[#C89D45] shadow-2xl relative overflow-visible">
             <button
               onClick={() => {
                 setModalOpen(false);
@@ -143,14 +156,41 @@ export default function CorporateSection() {
             </button>
 
             {submitted ? (
-              <div className="text-center py-10 space-y-4">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <div className="text-center py-8 space-y-4">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                   <Check className="w-8 h-8" />
                 </div>
-                <h3 className="font-serif text-2xl font-bold">Proposal Request Received!</h3>
-                <p className="font-sans text-sm text-gray-600">
-                  Our Corporate Concierge will contact you within 4 hours with a custom itinerary and package breakdown.
-                </p>
+                <h3 className="font-serif text-2xl font-bold text-[#1F1F1F]">
+                  Proposal Request Received!
+                </h3>
+                {emailDispatched ? (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl p-4 text-xs font-sans space-y-1.5 max-w-sm mx-auto">
+                    <div className="flex items-center justify-center gap-1.5 font-bold">
+                      <MailCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Confirmation Email Dispatched</span>
+                    </div>
+                    <p className="text-emerald-700">
+                      An itinerary overview has been sent to <strong>{formData.email}</strong>. Our Corporate Concierge will follow up within 4 hours.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="font-sans text-sm text-gray-600">
+                    Our Corporate Concierge will contact you within 4 hours with a custom itinerary and package breakdown.
+                  </p>
+                )}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalOpen(false);
+                      setSubmitted(false);
+                      setEmailDispatched(false);
+                    }}
+                    className="bg-[#C62828] text-white px-6 py-2.5 rounded-xl font-accent text-xs font-bold uppercase tracking-wider hover:bg-[#8B1E1E] transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -172,7 +212,7 @@ export default function CorporateSection() {
                       placeholder="TechCorp Solutions"
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                     />
                   </div>
                   <div>
@@ -185,7 +225,7 @@ export default function CorporateSection() {
                       placeholder="Rahul Sengupta"
                       value={formData.contactPerson}
                       onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                     />
                   </div>
                 </div>
@@ -201,7 +241,7 @@ export default function CorporateSection() {
                       placeholder="rahul@company.com"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                     />
                   </div>
                   <div>
@@ -214,35 +254,66 @@ export default function CorporateSection() {
                       placeholder="+91 98765 43210"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 items-start">
                   <div>
-                    <label className="text-[10px] font-accent uppercase text-[#C62828] font-bold">
+                    <label className="text-[10px] font-accent uppercase text-[#C62828] font-bold block mb-1">
                       Estimated Team Size
                     </label>
                     <input
                       type="number"
+                      min={2}
+                      max={100}
                       value={formData.employeesCount}
                       onChange={(e) => setFormData({ ...formData, employeesCount: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                      className="w-full h-[38px] bg-white border border-[#C89D45]/30 rounded-xl px-3 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-accent uppercase text-[#C62828] font-bold">
-                      Preferred Dates
+                    <label className="text-[10px] font-accent uppercase text-[#C62828] font-bold block mb-1">
+                      Estimated Budget
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Oct 15 - Oct 18"
-                      value={formData.preferredDates}
-                      onChange={(e) => setFormData({ ...formData, preferredDates: e.target.value })}
-                      className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
-                    />
+                    <select
+                      value={formData.budgetRange}
+                      onChange={(e) => setFormData({ ...formData, budgetRange: e.target.value })}
+                      className="w-full h-[38px] bg-white border border-[#C89D45]/30 rounded-xl px-3 text-xs font-sans focus:outline-none focus:border-[#C62828] cursor-pointer"
+                    >
+                      <option value="Below ₹1L">Below ₹1L</option>
+                      <option value="₹1L - ₹2L">₹1L – ₹2L</option>
+                      <option value="₹2L - ₹3L">₹2L – ₹3L</option>
+                      <option value="₹3L - ₹5L">₹3L – ₹5L</option>
+                      <option value="₹5L - ₹10L">₹5L – ₹10L</option>
+                      <option value="Above ₹10L">Above ₹10L</option>
+                    </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-accent uppercase text-[#C62828] font-bold block mb-1 flex items-center justify-between">
+                    <span>Preferred Dates</span>
+                    {formData.nights > 0 && (
+                      <span className="text-[#8B1E1E] font-bold lowercase tracking-normal">
+                        ({formData.nights} night{formData.nights !== 1 ? "s" : ""})
+                      </span>
+                    )}
+                  </label>
+                  <CorporateDatePicker
+                    startDate={formData.startDate}
+                    endDate={formData.endDate}
+                    onChange={(start, end, formattedRange, nights) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        startDate: start,
+                        endDate: end,
+                        preferredDates: formattedRange,
+                        nights: nights,
+                      }));
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -254,16 +325,26 @@ export default function CorporateSection() {
                     placeholder="Bonfire, acoustic music, AV setup, airport transfer..."
                     value={formData.requirements}
                     onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                    className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans"
+                    className="w-full bg-white border border-[#C89D45]/30 rounded-xl px-3 py-2 text-xs font-sans focus:outline-none focus:border-[#C62828]"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-[#C62828] hover:bg-[#8B1E1E] text-white py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-md border border-[#C89D45]"
+                  disabled={submitting}
+                  className="w-full bg-[#C62828] hover:bg-[#8B1E1E] disabled:opacity-75 disabled:cursor-wait text-white py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-md border border-[#C89D45] transition-all"
                 >
-                  <Send className="w-4 h-4 text-[#C89D45]" />
-                  <span>Submit Proposal Request</span>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#C89D45]" />
+                      <span>Sending Proposal Request...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 text-[#C89D45]" />
+                      <span>Submit Proposal Request</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}
