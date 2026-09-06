@@ -103,7 +103,7 @@ export async function POST(request: Request) {
               budgetRange: body.budgetRange || "₹2L - ₹3L",
               status: "NEW",
               requirements: body.requirements || "None",
-              createdAt: new Date().toLocaleString("en-IN"),
+              createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
             },
           }),
           redirect: "follow",

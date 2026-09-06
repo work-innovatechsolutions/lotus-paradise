@@ -92,7 +92,7 @@ function formatBookingRow(sheet, rowIdx) {
 
 function rowFromBooking(b) {
   return [
-    b.createdAt || new Date().toLocaleString("en-IN"),
+    b.createdAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     b.bookingNumber || b.id || "N/A",
     b.guestName || "Guest",
     b.phone || "N/A",
@@ -175,7 +175,7 @@ function formatCorporateRow(sheet, rowIdx) {
 
 function rowFromCorporateLead(lead) {
   return [
-    lead.createdAt || new Date().toLocaleString("en-IN"),
+    lead.createdAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     lead.id || ("CORP-" + Date.now().toString().slice(-6)),
     lead.company || "N/A",
     lead.contactPerson || "N/A",
@@ -317,7 +317,7 @@ function initializeTabs() {
 function testCorporateTab() {
   var sheet = getOrCreateCorporateSheet();
   var dummyLead = {
-    createdAt: new Date().toLocaleString("en-IN"),
+    createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     id: "CORP-TEST-" + Date.now().toString().slice(-4),
     company: "Test Corp Pvt Ltd",
     contactPerson: "Test User",
