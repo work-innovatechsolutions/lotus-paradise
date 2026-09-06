@@ -84,7 +84,9 @@ export default function ContactPage() {
               <Mail className="w-5 h-5 text-[#2C2473] shrink-0 mt-0.5" />
               <div>
                 <strong className="block font-accent text-sm">Email Address:</strong>
-                <span>stay@lotusparadisehomestay.com</span>
+                <a href="mailto:thecometas2025@gmail.com" className="hover:text-[#C62828] transition-colors">
+                  thecometas2025@gmail.com
+                </a>
               </div>
             </div>
           </div>

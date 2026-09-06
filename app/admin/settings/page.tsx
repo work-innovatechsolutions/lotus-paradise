@@ -175,7 +175,7 @@ export default function AdminSettingsPage() {
     phone3: "+91 92427 96931",
     phone4: "+91 76999 93099",
     whatsappNumber: "+919832012345",
-    email: "stay@lotusparadisehomestay.com",
+    email: "thecometas2025@gmail.com",
     address: "Upper Latpanchar Forest Road, Kurseong Division, West Bengal - 734008",
     seoKeywords: "Latpanchar Homestay, Rufous-necked Hornbill, Kanchenjunga View, Sittong Orange Orchards",
   });
@@ -204,7 +204,7 @@ export default function AdminSettingsPage() {
   const [smtpConfig, setSmtpConfig] = useState({
     user: "",
     pass: "",
-    adminEmail: "stay@lotusparadisehomestay.com",
+    adminEmail: "thecometas2025@gmail.com",
     fromName: "The Cometas Himalayan Retreat",
   });
   const [showSmtpPass, setShowSmtpPass] = useState(false);
@@ -906,7 +906,7 @@ export default function AdminSettingsPage() {
               </label>
               <input
                 type="email"
-                placeholder="stay@lotusparadisehomestay.com"
+                placeholder="thecometas2025@gmail.com"
                 value={smtpConfig.adminEmail}
                 onChange={(e) => setSmtpConfig({ ...smtpConfig, adminEmail: e.target.value })}
                 className="w-full bg-black/40 border border-[#C89D45]/40 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#C89D45]"

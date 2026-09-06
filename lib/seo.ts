@@ -7,7 +7,7 @@ export const siteConfig = {
   ogImage: "/images/hero/bengal-latpanchar.jpg.jpeg",
   telephone: "+91 98320 12345",
   telephones: ["+91 98320 12345", "+91 97323 00111", "+91 92427 96931", "+91 76999 93099"],
-  email: "stay@lotusparadisehomestay.com",
+  email: "thecometas2025@gmail.com",
   address: {
     street: "Upper Latpanchar Forest Road",
     locality: "Latpanchar, Kurseong",

@@ -66,7 +66,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   // 2. Fall back to environment variables
   const user = process.env.GMAIL_USER || process.env.SMTP_USER;
   const pass = process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS;
-  const adminEmail = process.env.ADMIN_EMAIL || user || "stay@lotusparadisehomestay.com";
+  const adminEmail = process.env.ADMIN_EMAIL || user || "thecometas2025@gmail.com";
   const fromName = process.env.SMTP_FROM_NAME || "The Cometas Himalayan Retreat";
 
   if (user && pass) {

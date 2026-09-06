@@ -154,7 +154,7 @@ export function getGuestConfirmationEmailHtml(booking: Booking, siteUrl = "https
       <strong style="color: #2C2473; font-size: 13px;">The Cometas — Lotus Paradise Homestay</strong><br>
       Upper Latpanchar Forest Road, Kurseong Division, Darjeeling District, West Bengal - 734008<br>
       Contact: +91 98320 12345 · +91 97323 00111<br>
-      Email: stay@lotusparadisehomestay.com · Web: <a href="${siteUrl}" style="color: #C62828; text-decoration: none;">www.thecometas.com</a>
+      Email: thecometas2025@gmail.com · Web: <a href="${siteUrl}" style="color: #C62828; text-decoration: none;">www.thecometas.com</a>
     </div>
   </div>
 </body>
@@ -482,7 +482,7 @@ export function getCorporateGuestEmailHtml(
       <strong style="color: #2C2473; font-size: 13px;">The Cometas — Corporate Mountain Offsites</strong><br>
       Upper Latpanchar Forest Road, Kurseong Division, Darjeeling District, West Bengal - 734008<br>
       Corporate Desk: +91 98320 12345 · +91 97323 00111<br>
-      Email: stay@lotusparadisehomestay.com · Web: <a href="${siteUrl}" style="color: #C62828; text-decoration: none;">www.thecometas.com</a>
+      Email: thecometas2025@gmail.com · Web: <a href="${siteUrl}" style="color: #C62828; text-decoration: none;">www.thecometas.com</a>
     </div>
   </div>
 </body>
@@ -512,7 +512,7 @@ Our Corporate Coordinator is checking room allotment and will send a detailed it
 
 If you have urgent questions or need help arranging airport cabs from Bagdogra (IXB) / NJP, contact us directly:
 Phone / WhatsApp: +91 98320 12345
-Email: stay@lotusparadisehomestay.com
+Email: thecometas2025@gmail.com
 Web: https://thecometas.com/corporate
 
 Warm regards,
