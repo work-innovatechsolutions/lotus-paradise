@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       <p>Our Corporate Concierge is at your disposal to customize meal preferences, arrange Bolero / Scorpio cab transfers from Bagdogra Airport (IXB) / NJP, or modify dates.</p>
 
       <div style="text-align: center; margin: 25px 0;">
-        <a href="https://wa.me/919832012345?text=Hello%20The%20Cometas,%20we%20reviewed%20the%20proposal%20for%20${encodeURIComponent(company || '')}%20and%20would%20like%20to%20proceed." class="btn">
+        <a href="https://wa.me/918900087810?text=Hello%20The%20Cometas,%20we%20reviewed%20the%20proposal%20for%20${encodeURIComponent(company || '')}%20and%20would%20like%20to%20proceed." class="btn">
           💬 Confirm Proposal on WhatsApp
         </a>
       </div>

@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MapPin, Phone, Mail, Send, Check } from "lucide-react";
 import WhatsAppIcon from "@/components/whatsapp-icon";
+import { SettingsService } from "@/services/settings.service";
+
+const DEFAULT_WHATSAPP_NUMBER = "918900087810";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -13,6 +16,20 @@ export default function ContactPage() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState(DEFAULT_WHATSAPP_NUMBER);
+
+  useEffect(() => {
+    SettingsService.getGeneralSettings()
+      .then((settings) => {
+        if (settings?.whatsappNumber) {
+          const cleaned = settings.whatsappNumber.replace(/[^0-9]/g, "");
+          if (cleaned && cleaned !== "919832012345" && cleaned !== "9832012345") {
+            setWhatsappNumber(cleaned.startsWith("91") ? cleaned : `91${cleaned}`);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,7 +207,7 @@ export default function ContactPage() {
                 </button>
 
                 <a
-                  href={`https://wa.me/919832012345?text=${whatsappMessage}`}
+                  href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
                   target="_blank"
                   rel="noreferrer"
                   className="bg-[#25D366] hover:bg-[#1EBE5D] text-white px-6 py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md transition-colors"

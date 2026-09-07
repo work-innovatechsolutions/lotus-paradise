@@ -545,6 +545,34 @@ body {
   background: rgba(200, 157, 69, 0.8);
 }
 
+/* Light theme luxury scrollbar for reservation engine add-ons */
+.addon-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #C89D45 rgba(200, 157, 69, 0.15);
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.addon-scrollbar::-webkit-scrollbar {
+  width: 7px;
+}
+
+.addon-scrollbar::-webkit-scrollbar-track {
+  background: rgba(200, 157, 69, 0.12);
+  border-radius: 999px;
+}
+
+.addon-scrollbar::-webkit-scrollbar-thumb {
+  background: #C89D45;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.addon-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9A7B2C;
+}
+
 /* ================================================
    PRINT STYLES — ISOLATED INVOICE RECEIPT PRINTING
    Only #printable-invoice is printed. All navigation,

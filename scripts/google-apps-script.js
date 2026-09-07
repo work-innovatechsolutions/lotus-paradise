@@ -44,7 +44,8 @@ var BOOKING_HEADERS = [
   "Guests",
   "Total Amount (₹)",
   "Booking Status",
-  "Special Requests"
+  "Special Requests",
+  "Booked Add-ons"
 ];
 
 
@@ -116,28 +117,35 @@ function getOrCreateBookingsSheet() {
   }
 
   if (sheet.getLastRow() === 0) {
-
     sheet.appendRow(BOOKING_HEADERS);
-
-    var headerRange = sheet.getRange(
-      1,
-      1,
-      1,
-      BOOKING_HEADERS.length
-    );
-
-    headerRange
-      .setBackground("#2C2473")
-      .setFontColor("#FFFFFF")
-      .setFontWeight("bold")
-      .setFontFamily("Arial")
-      .setFontSize(10)
-      .setHorizontalAlignment("center")
-      .setVerticalAlignment("middle");
-
-    sheet.setRowHeight(1, 36);
-    sheet.setFrozenRows(1);
+  } else {
+    // Ensure all header columns (including Column 14 "Booked Add-ons") exist in Row 1 of existing sheets
+    var lastCol = sheet.getLastColumn();
+    if (lastCol < BOOKING_HEADERS.length) {
+      for (var colIdx = lastCol + 1; colIdx <= BOOKING_HEADERS.length; colIdx++) {
+        sheet.getRange(1, colIdx).setValue(BOOKING_HEADERS[colIdx - 1]);
+      }
+    }
   }
+
+  var headerRange = sheet.getRange(
+    1,
+    1,
+    1,
+    BOOKING_HEADERS.length
+  );
+
+  headerRange
+    .setBackground("#2C2473")
+    .setFontColor("#FFFFFF")
+    .setFontWeight("bold")
+    .setFontFamily("Arial")
+    .setFontSize(10)
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+
+  sheet.setRowHeight(1, 36);
+  sheet.setFrozenRows(1);
 
   /*
    * Set important columns as Plain Text.
@@ -237,6 +245,62 @@ function formatBookingRow(sheet, rowIdx) {
       .setFontColor("#C62828")
       .setFontWeight("bold");
   }
+
+  /*
+   * Format Special Requests (Col 13) and Booked Add-ons (Col 14)
+   */
+
+  sheet.getRange(rowIdx, 13)
+    .setHorizontalAlignment("left")
+    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+    .setVerticalAlignment("top");
+
+  if (BOOKING_HEADERS.length >= 14) {
+    sheet.getRange(rowIdx, 14)
+      .setHorizontalAlignment("left")
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+      .setVerticalAlignment("top");
+  }
+}
+
+
+/* =============================================================================
+   FORMAT ADD-ONS AS NUMBERED BULLETS (1., 2., 3. on separate lines)
+============================================================================= */
+
+function formatAddonsNumbered(rawAddons) {
+
+  if (!rawAddons) {
+    return "None";
+  }
+
+  if (Array.isArray(rawAddons)) {
+    if (rawAddons.length === 0) return "None";
+    return rawAddons.map(function(item, idx) {
+      return (idx + 1) + ". " + String(item).trim().replace(/^\d+\.\s*/, "");
+    }).join("\n");
+  }
+
+  var str = String(rawAddons).trim();
+  if (!str || str.toLowerCase() === "none") {
+    return "None";
+  }
+
+  if (str.indexOf("\n") !== -1) {
+    var lines = str.split("\n").map(function(s) { return s.trim(); }).filter(Boolean);
+    return lines.map(function(line, idx) {
+      return (idx + 1) + ". " + line.replace(/^\d+\.\s*/, "");
+    }).join("\n");
+  }
+
+  var items = str.split(/,\s*(?=[A-Z0-9])/).map(function(s) { return s.trim(); }).filter(Boolean);
+  if (items.length > 1) {
+    return items.map(function(item, idx) {
+      return (idx + 1) + ". " + item.replace(/^\d+\.\s*/, "");
+    }).join("\n");
+  }
+
+  return str.match(/^\d+\.\s*/) ? str : "1. " + str;
 }
 
 
@@ -245,9 +309,27 @@ function formatBookingRow(sheet, rowIdx) {
 ============================================================================= */
 
 function rowFromBooking(b) {
+  var addonsText = formatAddonsNumbered(b.addons);
+
+  // Clean guest special requests / notes so Add-ons are never inside Special Requests
+  var rawNotes = b.specialRequests || "";
+  var cleanNotes = rawNotes;
+  if (cleanNotes.indexOf("Add-ons:") !== -1 || cleanNotes.indexOf("[Add-ons:") !== -1) {
+    if (!addonsText || addonsText === "None") {
+      var extracted = cleanNotes.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").trim();
+      addonsText = formatAddonsNumbered(extracted);
+    }
+    if (cleanNotes.indexOf("|") !== -1) {
+      cleanNotes = cleanNotes.split("|").slice(1).join("|").trim();
+    } else {
+      cleanNotes = "";
+    }
+  }
+
+  var notes = cleanNotes.trim() || "None";
+  if (!addonsText) addonsText = "None";
 
   return [
-
     safeText(
       b.createdAt ||
       new Date().toLocaleString(
@@ -255,75 +337,61 @@ function rowFromBooking(b) {
         { timeZone: "Asia/Kolkata" }
       )
     ),
-
     safeText(
       b.bookingNumber ||
       b.id ||
       "N/A"
     ),
-
     safeText(
       b.guestName ||
       "Guest"
     ),
-
-    /*
-     * Phone number is treated safely with apostrophe & text format.
-     */
-
     safeText(
       b.phone ||
       b.phoneNumber ||
       "N/A"
     ),
-
     safeText(
       b.email ||
       "N/A"
     ),
-
     safeText(
       b.roomTitle ||
       b.room ||
       "Standard Suite"
     ),
-
     safeText(
       b.checkIn ||
       ""
     ),
-
     safeText(
       b.checkOut ||
       ""
     ),
-
     Number(
       b.nights || 1
     ),
-
     Number(
       b.guestsCount ||
       b.guests ||
       1
     ),
-
     Number(
       b.totalAmount ||
       b.amount ||
       0
     ),
-
     safeText(
       (
         b.status ||
         "CONFIRMED"
       ).toUpperCase()
     ),
-
     safeText(
-      b.specialRequests ||
-      "None"
+      notes
+    ),
+    safeText(
+      addonsText
     )
   ];
 }
@@ -350,28 +418,45 @@ function getOrCreateCorporateSheet() {
 
 
   if (sheet.getLastRow() === 0) {
-
     sheet.appendRow(CORPORATE_HEADERS);
-
-    var headerRange = sheet.getRange(
-      1,
-      1,
-      1,
-      CORPORATE_HEADERS.length
-    );
-
-    headerRange
-      .setBackground("#8B1E1E")
-      .setFontColor("#FFFFFF")
-      .setFontWeight("bold")
-      .setFontFamily("Arial")
-      .setFontSize(10)
-      .setHorizontalAlignment("center")
-      .setVerticalAlignment("middle");
-
-    sheet.setRowHeight(1, 36);
-    sheet.setFrozenRows(1);
+  } else {
+    // Auto-normalize any existing rows in Column B that have raw Firestore IDs
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var idRange = sheet.getRange(2, 2, lastRow - 1, 1);
+      var idValues = idRange.getValues();
+      var changed = false;
+      for (var r = 0; r < idValues.length; r++) {
+        var cellVal = String(idValues[r][0] || "").trim();
+        if (cellVal && cellVal.toUpperCase().indexOf("CORP-") !== 0) {
+          idValues[r][0] = normalizeCorporateLeadId(cellVal);
+          changed = true;
+        }
+      }
+      if (changed) {
+        idRange.setValues(idValues);
+      }
+    }
   }
+
+  var headerRange = sheet.getRange(
+    1,
+    1,
+    1,
+    CORPORATE_HEADERS.length
+  );
+
+  headerRange
+    .setBackground("#8B1E1E")
+    .setFontColor("#FFFFFF")
+    .setFontWeight("bold")
+    .setFontFamily("Arial")
+    .setFontSize(10)
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+
+  sheet.setRowHeight(1, 36);
+  sheet.setFrozenRows(1);
 
 
   /*
@@ -478,10 +563,35 @@ function formatCorporateRow(sheet, rowIdx) {
 
 
 /* =============================================================================
+   NORMALIZE CORPORATE REFERENCE ID
+============================================================================= */
+
+function normalizeCorporateLeadId(id) {
+  if (!id) return "CORP-" + Math.floor(100000 + Math.random() * 900000);
+  var s = String(id).trim();
+  if (/^CORP-\d{6}$/i.test(s)) return s.toUpperCase();
+  if (s.toLowerCase().indexOf("corp-") === 0) {
+    var rest = s.slice(5).replace(/[^a-zA-Z0-9]/g, "");
+    return ("CORP-" + rest).toUpperCase();
+  }
+  // Deterministic 6-digit numeric reference for raw Firestore IDs (e.g. "yLxynfARoxUJx39NgjD8")
+  var hash = 0;
+  for (var i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i);
+    hash |= 0;
+  }
+  var code = Math.abs(hash).toString().slice(0, 6);
+  while (code.length < 6) code = code + "7";
+  return "CORP-" + code;
+}
+
+
+/* =============================================================================
    CREATE CORPORATE LEAD ROW DATA
 ============================================================================= */
 
 function rowFromCorporateLead(lead) {
+  var leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
 
   return [
 
@@ -494,8 +604,7 @@ function rowFromCorporateLead(lead) {
     ),
 
     safeText(
-      lead.id ||
-      ("CORP-" + Date.now().toString().slice(-6))
+      leadRef
     ),
 
     safeText(
@@ -562,104 +671,120 @@ function rowFromCorporateLead(lead) {
 
 
 /* =============================================================================
-   SAFE APPEND BOOKING ROW
+   SAFE UPSERT BOOKING ROW (DEDUPLICATION ENABLED)
+   If bookingNumber already exists in Column B, updates that row instead of duplicating.
 ============================================================================= */
 
-function safeAppendBookingRow(sheet, rowData) {
+function safeUpsertBookingRow(sheet, rowData, bookingId) {
 
-  var newRow = sheet.getLastRow() + 1;
+  var lastRow = sheet.getLastRow();
+  var targetRow = -1;
 
+  if (lastRow > 1 && bookingId) {
+    var searchId = String(bookingId).trim().toUpperCase();
+    var idValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (var i = 0; i < idValues.length; i++) {
+      var existingId = String(idValues[i][0]).trim().toUpperCase();
+      if (existingId && existingId === searchId) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  }
 
-  /*
-   * Format the entire row as Plain Text FIRST.
-   */
+  var rowIdx = (targetRow > 1) ? targetRow : (lastRow + 1);
 
   sheet
     .getRange(
-      newRow,
+      rowIdx,
       1,
       1,
       rowData.length
     )
     .setNumberFormat("@");
 
-
-  /*
-   * Restore numeric formatting where required.
-   */
-
   sheet
-    .getRange(newRow, 9)
+    .getRange(rowIdx, 9)
     .setNumberFormat("0");
 
   sheet
-    .getRange(newRow, 10)
+    .getRange(rowIdx, 10)
     .setNumberFormat("0");
 
   sheet
-    .getRange(newRow, 11)
+    .getRange(rowIdx, 11)
     .setNumberFormat("₹#,##0");
-
-
-  /*
-   * Write values.
-   */
 
   sheet
     .getRange(
-      newRow,
+      rowIdx,
       1,
       1,
       rowData.length
     )
     .setValues([rowData]);
+
+  return rowIdx;
+}
+
+function safeAppendBookingRow(sheet, rowData) {
+  var bookingId = rowData && rowData.length > 1 ? rowData[1] : null;
+  return safeUpsertBookingRow(sheet, rowData, bookingId);
 }
 
 
 /* =============================================================================
-   SAFE APPEND CORPORATE ROW
+   SAFE UPSERT CORPORATE ROW (DEDUPLICATION ENABLED)
+   If leadRef already exists in Column B, updates that row instead of duplicating.
 ============================================================================= */
 
-function safeAppendCorporateRow(sheet, rowData) {
+function safeUpsertCorporateRow(sheet, rowData, leadRef) {
 
-  var newRow = sheet.getLastRow() + 1;
+  var lastRow = sheet.getLastRow();
+  var targetRow = -1;
 
+  if (lastRow > 1 && leadRef) {
+    var searchRef = String(leadRef).trim().toUpperCase();
+    var idValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (var i = 0; i < idValues.length; i++) {
+      var existingRef = String(idValues[i][0]).trim().toUpperCase();
+      if (existingRef && existingRef === searchRef) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  }
 
-  /*
-   * Format the row as Plain Text FIRST.
-   */
+  var rowIdx = (targetRow > 1) ? targetRow : (lastRow + 1);
 
   sheet
     .getRange(
-      newRow,
+      rowIdx,
       1,
       1,
       rowData.length
     )
     .setNumberFormat("@");
 
-
-  /*
-   * Team size is numeric.
-   */
-
   sheet
-    .getRange(newRow, 7)
+    .getRange(rowIdx, 7)
     .setNumberFormat("0");
-
-
-  /*
-   * Write values.
-   */
 
   sheet
     .getRange(
-      newRow,
+      rowIdx,
       1,
       1,
       rowData.length
     )
     .setValues([rowData]);
+
+  return rowIdx;
+}
+
+function safeAppendCorporateRow(sheet, rowData) {
+  var leadRef = rowData && rowData.length > 1 ? rowData[1] : null;
+  return safeUpsertCorporateRow(sheet, rowData, leadRef);
 }
 
 
@@ -768,16 +893,21 @@ function doPost(e) {
         data.lead ||
         data;
 
+      var leadRef =
+        lead.leadRef ||
+        lead.id ||
+        null;
 
-      safeAppendCorporateRow(
-        corpSheet,
-        rowFromCorporateLead(lead)
-      );
-
+      var corpRowIdx =
+        safeUpsertCorporateRow(
+          corpSheet,
+          rowFromCorporateLead(lead),
+          leadRef
+        );
 
       formatCorporateRow(
         corpSheet,
-        corpSheet.getLastRow()
+        corpRowIdx
       );
 
 
@@ -916,16 +1046,21 @@ function doPost(e) {
       data.booking ||
       data;
 
+    var bookingId =
+      booking.bookingNumber ||
+      booking.id ||
+      null;
 
-    safeAppendBookingRow(
-      bookingSheet,
-      rowFromBooking(booking)
-    );
-
+    var bookingRowIdx =
+      safeUpsertBookingRow(
+        bookingSheet,
+        rowFromBooking(booking),
+        bookingId
+      );
 
     formatBookingRow(
       bookingSheet,
-      bookingSheet.getLastRow()
+      bookingRowIdx
     );
 
 
@@ -997,6 +1132,16 @@ function onOpen() {
     )
 
     .addItem(
+      "🔢 Format Existing Add-ons as Numbered Bullets",
+      "formatExistingAddonsToNumbered"
+    )
+
+    .addItem(
+      "🧹 Clean Up Duplicate Booking Rows",
+      "cleanDuplicateBookings"
+    )
+
+    .addItem(
       "Fix Phone Number Formatting (Repair All Broken #ERROR! Cells)",
       "fixPhoneNumberFormatting"
     )
@@ -1007,7 +1152,7 @@ function onOpen() {
     )
 
     .addItem(
-      "TEST: Add Dummy Booking",
+      "TEST: Add Dummy Booking (with Add-ons)",
       "testBooking"
     )
 
@@ -1029,9 +1174,119 @@ function initializeTabs() {
   SpreadsheetApp
     .getActiveSpreadsheet()
     .toast(
-      "Both tabs initialized successfully!",
+      "Both tabs initialized successfully with 14-column layout!",
       "Done",
       5
+    );
+}
+
+
+/* =============================================================================
+   CLEAN UP DUPLICATE BOOKING ROWS
+   Finds any existing duplicate bookings by Booking ID (Column B) and removes them.
+============================================================================= */
+
+function cleanDuplicateBookings() {
+
+  var sheet =
+    getOrCreateBookingsSheet();
+
+  var lastRow =
+    sheet.getLastRow();
+
+  if (lastRow <= 2) {
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .toast("No duplicate bookings found.", "Clean", 4);
+    return;
+  }
+
+  var data =
+    sheet.getRange(2, 1, lastRow - 1, BOOKING_HEADERS.length).getValues();
+
+  var seen = {};
+  var rowsToDelete = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var bookingId = String(data[i][1] || "").trim().toUpperCase();
+    if (!bookingId || bookingId === "N/A") continue;
+
+    if (seen[bookingId]) {
+      rowsToDelete.push(i + 2);
+    } else {
+      seen[bookingId] = true;
+    }
+  }
+
+  // Delete from bottom to top so index order does not shift
+  for (var r = rowsToDelete.length - 1; r >= 0; r--) {
+    sheet.deleteRow(rowsToDelete[r]);
+  }
+
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast(
+      "Removed " + rowsToDelete.length + " duplicate booking row(s) successfully!",
+      "Duplicates Cleaned",
+      6
+    );
+}
+
+
+/* =============================================================================
+   FORMAT EXISTING ADD-ONS TO NUMBERED BULLETS
+   Converts comma-separated add-on cells in Column N into clean vertical numbered lists.
+============================================================================= */
+
+function formatExistingAddonsToNumbered() {
+
+  var sheet =
+    getOrCreateBookingsSheet();
+
+  var lastRow =
+    sheet.getLastRow();
+
+  if (lastRow < 2) {
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .toast("No bookings found.", "Info", 4);
+    return;
+  }
+
+  var range =
+    sheet.getRange(2, 14, lastRow - 1, 1);
+
+  var values =
+    range.getValues();
+
+  var updatedCount = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var cellValue = String(values[i][0] || "").trim();
+    if (!cellValue || cellValue.toLowerCase() === "none" || cellValue === "N/A") {
+      continue;
+    }
+
+    var formatted = formatAddonsNumbered(cellValue);
+    if (formatted !== cellValue) {
+      values[i][0] = formatted;
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    range.setValues(values);
+    range
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+      .setVerticalAlignment("top");
+  }
+
+  SpreadsheetApp
+    .getActiveSpreadsheet()
+    .toast(
+      "Converted " + updatedCount + " row(s) into clean numbered bullets!",
+      "Format Complete",
+      6
     );
 }
 
@@ -1383,7 +1638,12 @@ function testBooking() {
       "CONFIRMED",
 
     specialRequests:
-      "None"
+      "Couple room with mountain view",
+
+    addons: [
+      "Guided Rufous-Necked Hornbill Birding Trail (2 pax - ₹3000)",
+      "Private Mountain Sunset Bonfire (₹800)"
+    ]
   };
 
 
@@ -1402,7 +1662,7 @@ function testBooking() {
   SpreadsheetApp
     .getActiveSpreadsheet()
     .toast(
-      "Test booking added successfully!",
+      "Test booking with Add-ons added successfully to Column 14!",
       "Test Passed",
       5
     );

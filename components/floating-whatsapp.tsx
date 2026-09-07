@@ -6,7 +6,9 @@ import Image from "next/image";
 import WhatsAppIcon from "@/components/whatsapp-icon";
 import { X, Send, Sparkles, MessageCircle, ChevronRight, ShieldCheck } from "lucide-react";
 
-const PHONE_NUMBER = "919832012345";
+import { SettingsService } from "@/services/settings.service";
+
+const DEFAULT_PHONE_NUMBER = "918900087810";
 
 const QUICK_PROMPTS = [
   {
@@ -35,6 +37,20 @@ export default function FloatingWhatsApp() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [showBubble, setShowBubble] = useState(true);
+  const [phoneNumber, setPhoneNumber] = useState(DEFAULT_PHONE_NUMBER);
+
+  useEffect(() => {
+    SettingsService.getGeneralSettings()
+      .then((settings) => {
+        if (settings?.whatsappNumber) {
+          const cleaned = settings.whatsappNumber.replace(/[^0-9]/g, "");
+          if (cleaned && cleaned !== "919832012345" && cleaned !== "9832012345") {
+            setPhoneNumber(cleaned.startsWith("91") ? cleaned : `91${cleaned}`);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Hide on admin routes
   if (pathname.startsWith("/admin")) return null;
@@ -47,7 +63,7 @@ export default function FloatingWhatsApp() {
     const msg = customText
       ? encodeURIComponent(customText)
       : defaultMsg;
-    window.open(`https://wa.me/${PHONE_NUMBER}?text=${msg}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/${phoneNumber}?text=${msg}`, "_blank", "noopener,noreferrer");
     setIsOpen(false);
   };
 

@@ -207,7 +207,24 @@ export default function AdminBookingsPage() {
                   <div className="font-bold text-white">{b.guestName}</div>
                   <div className="text-[11px] text-gray-400">{b.phone} • {b.email}</div>
                 </td>
-                <td className="py-4">{b.roomTitle}</td>
+                <td className="py-4">
+                  <div className="font-semibold text-white">{b.roomTitle}</div>
+                  {b.addons && b.addons.length > 0 && (
+                    <div className="text-[11px] text-[#F3D27A] mt-1 space-y-0.5">
+                      {b.addons.map((addon, idx) => (
+                        <div key={idx} className="flex items-center gap-1 font-sans">
+                          <span className="text-[10px]">✨</span>
+                          <span>{addon}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {b.specialRequests && !b.specialRequests.startsWith("Add-ons") && !b.specialRequests.startsWith("[Add-ons") && (
+                    <div className="text-[10px] text-gray-400 italic mt-0.5">
+                      Note: {b.specialRequests}
+                    </div>
+                  )}
+                </td>
                 <td className="py-4">
                   {b.checkIn} → {b.checkOut}
                   <div className="text-[10px] text-gray-400">{b.guestsCount} Guests ({b.nights} Nights)</div>

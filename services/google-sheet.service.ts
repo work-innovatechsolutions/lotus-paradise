@@ -1,5 +1,6 @@
 import type { Booking } from "@/types/booking";
 import { SettingsService } from "./settings.service";
+import { normalizeCorporateLeadId } from "@/lib/utils";
 
 export interface GoogleSheetRow {
   bookingNumber: string;
@@ -14,6 +15,7 @@ export interface GoogleSheetRow {
   totalAmount: number | string;
   status: string;
   specialRequests: string;
+  addons?: string;
   createdAt: string;
 }
 
@@ -32,7 +34,7 @@ export const GoogleSheetService = {
       } catch {}
     }
 
-    try {
+  try {
       const general = await SettingsService.getGeneralSettings();
       if ((general as any).googleSheetWebhookUrl) {
         return (general as any).googleSheetWebhookUrl;
@@ -46,6 +48,52 @@ export const GoogleSheetService = {
    * Formats a booking into clean spreadsheet payload
    */
   formatPayload(booking: Booking): GoogleSheetRow {
+    let addonsFormatted = "";
+    if (Array.isArray(booking.addons) && booking.addons.length > 0) {
+      addonsFormatted = booking.addons
+        .map((a, i) => `${i + 1}. ${a.replace(/^\d+\.\s*/, "")}`)
+        .join("\n");
+    } else if (typeof booking.addons === "string" && (booking.addons as string).trim()) {
+      const raw = (booking.addons as string).trim();
+      if (raw.toLowerCase() === "none") {
+        addonsFormatted = "None";
+      } else if (raw.includes("\n")) {
+        addonsFormatted = raw
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((a, i) => `${i + 1}. ${a.replace(/^\d+\.\s*/, "")}`)
+          .join("\n");
+      } else {
+        const parts = raw.split(/,\s*(?=[A-Z0-9])/).map((s) => s.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          addonsFormatted = parts
+            .map((a, i) => `${i + 1}. ${a.replace(/^\d+\.\s*/, "")}`)
+            .join("\n");
+        } else {
+          addonsFormatted = raw.match(/^\d+\.\s*/) ? raw : `1. ${raw}`;
+        }
+      }
+    }
+
+    // If booking had Add-ons bundled inside specialRequests from older submission, cleanly separate them
+    let cleanNotes = booking.specialRequests || "";
+    if (cleanNotes.includes("Add-ons:") || cleanNotes.includes("[Add-ons:")) {
+      if (!addonsFormatted) {
+        const rawExtracted = cleanNotes.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").trim();
+        const parts = rawExtracted.split(/,\s*(?=[A-Z0-9])/).map((s) => s.trim()).filter(Boolean);
+        addonsFormatted = parts.length > 1
+          ? parts.map((a, i) => `${i + 1}. ${a.replace(/^\d+\.\s*/, "")}`).join("\n")
+          : (rawExtracted ? `1. ${rawExtracted}` : "");
+      }
+      if (cleanNotes.includes("|")) {
+        cleanNotes = cleanNotes.split("|").slice(1).join("|").trim();
+      } else {
+        cleanNotes = "";
+      }
+    }
+    const specialNotes = cleanNotes.trim() || "None";
+
     return {
       bookingNumber: booking.bookingNumber || booking.id || "N/A",
       guestName: booking.guestName || "Guest",
@@ -58,8 +106,11 @@ export const GoogleSheetService = {
       guestsCount: booking.guestsCount || 1,
       totalAmount: booking.totalAmount || 0,
       status: booking.status || "CONFIRMED",
-      specialRequests: booking.specialRequests || "None",
-      createdAt: booking.createdAt ? new Date(booking.createdAt).toLocaleString("en-IN") : new Date().toLocaleString("en-IN"),
+      specialRequests: specialNotes,
+      addons: addonsFormatted || "None",
+      createdAt: booking.createdAt
+        ? new Date(booking.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+        : new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     };
   },
 
@@ -239,7 +290,7 @@ export const GoogleSheetService = {
     createdAt: string;
   } {
     return {
-      id: lead.id || `corp-${Date.now()}`,
+      id: normalizeCorporateLeadId((lead as any).leadRef || lead.id),
       company: lead.company || "N/A",
       contactPerson: lead.contactPerson || "N/A",
       email: lead.email || "N/A",

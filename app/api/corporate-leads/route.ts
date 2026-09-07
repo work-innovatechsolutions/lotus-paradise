@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, setDoc, doc } from "firebase/firestore";
 import { sendCorporateInquiryEmails } from "@/lib/email-service";
+import { generateCorporateLeadNumber } from "@/lib/utils";
 
 export async function GET() {
   try {
@@ -30,7 +31,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const leadRef = generateCorporateLeadNumber();
+
     const leadData = {
+      leadRef,
       company: body.company,
       contactPerson: body.contactPerson,
       email: body.email,
@@ -55,6 +59,7 @@ export async function POST(request: Request) {
       await setDoc(doc(db, "corporateLeads", docRef.id), {
         ...leadData,
         id: docRef.id,
+        leadRef,
       });
     } catch (mirrorErr) {
       console.warn("Mirroring corporate lead warning:", mirrorErr);
@@ -64,7 +69,8 @@ export async function POST(request: Request) {
     let emailResult = { success: false, guestSent: false, adminSent: false };
     try {
       emailResult = await sendCorporateInquiryEmails({
-        id: docRef.id,
+        id: leadRef,
+        leadRef,
         company: body.company,
         contactPerson: body.contactPerson,
         email: body.email,
@@ -92,7 +98,8 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             action: "add_corporate_lead",
             lead: {
-              id: docRef.id,
+              id: leadRef,
+              leadRef,
               company: body.company,
               contactPerson: body.contactPerson,
               email: body.email,

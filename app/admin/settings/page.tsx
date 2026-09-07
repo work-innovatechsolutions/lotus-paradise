@@ -51,7 +51,7 @@ const APPS_SCRIPT_CODE = `/**
 const BOOKINGS_SHEET_NAME = "Bookings";
 const CORPORATE_SHEET_NAME = "Corporate Leads";
 
-const BOOKING_HEADERS = ["Timestamp", "Booking ID", "Guest Name", "Phone Number", "Email", "Room Suite", "Check-In", "Check-Out", "Nights", "Guests", "Total Amount (₹)", "Booking Status", "Special Requests"];
+const BOOKING_HEADERS = ["Timestamp", "Booking ID", "Guest Name", "Phone Number", "Email", "Room Suite", "Check-In", "Check-Out", "Nights", "Guests", "Total Amount (₹)", "Booking Status", "Special Requests", "Booked Add-ons"];
 const CORPORATE_HEADERS = ["Timestamp", "Lead Ref ID", "Company Name", "Contact Person", "Work Email", "Phone Number", "Team Size (Pax)", "Preferred Dates", "Nights", "Estimated Budget", "Pipeline Status", "Special Requests / Requirements"];
 
 function getOrCreateBookingsSheet() {
@@ -60,11 +60,18 @@ function getOrCreateBookingsSheet() {
   if (!sheet) sheet = ss.insertSheet(BOOKINGS_SHEET_NAME, 0);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(BOOKING_HEADERS);
-    const hr = sheet.getRange(1, 1, 1, BOOKING_HEADERS.length);
-    hr.setBackground("#2C2473").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
-    sheet.setRowHeight(1, 36);
-    sheet.setFrozenRows(1);
+  } else {
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < BOOKING_HEADERS.length) {
+      for (let colIdx = lastCol + 1; colIdx <= BOOKING_HEADERS.length; colIdx++) {
+        sheet.getRange(1, colIdx).setValue(BOOKING_HEADERS[colIdx - 1]);
+      }
+    }
   }
+  const hr = sheet.getRange(1, 1, 1, BOOKING_HEADERS.length);
+  hr.setBackground("#2C2473").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 36);
+  sheet.setFrozenRows(1);
   return sheet;
 }
 
@@ -74,11 +81,26 @@ function getOrCreateCorporateSheet() {
   if (!sheet) sheet = ss.insertSheet(CORPORATE_SHEET_NAME, 1);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(CORPORATE_HEADERS);
-    const hr = sheet.getRange(1, 1, 1, CORPORATE_HEADERS.length);
-    hr.setBackground("#8B1E1E").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
-    sheet.setRowHeight(1, 36);
-    sheet.setFrozenRows(1);
+  } else {
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const idRange = sheet.getRange(2, 2, lastRow - 1, 1);
+      const idValues = idRange.getValues();
+      let changed = false;
+      for (let r = 0; r < idValues.length; r++) {
+        const val = String(idValues[r][0] || "").trim();
+        if (val && !val.toUpperCase().startsWith("CORP-")) {
+          idValues[r][0] = normalizeCorporateLeadId(val);
+          changed = true;
+        }
+      }
+      if (changed) idRange.setValues(idValues);
+    }
   }
+  const hr = sheet.getRange(1, 1, 1, CORPORATE_HEADERS.length);
+  hr.setBackground("#8B1E1E").setFontColor("#FFFFFF").setFontWeight("bold").setFontFamily("Arial").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 36);
+  sheet.setFrozenRows(1);
   return sheet;
 }
 
@@ -98,6 +120,8 @@ function formatBookingRow(sheet, rowIdx) {
   if (sv === "CONFIRMED") sc.setBackground("#E8F5E9").setFontColor("#2E7D32").setFontWeight("bold");
   else if (sv === "PENDING") sc.setBackground("#FFF8E1").setFontColor("#F57F17").setFontWeight("bold");
   else if (sv === "CANCELLED") sc.setBackground("#FFEBEE").setFontColor("#C62828").setFontWeight("bold");
+  sheet.getRange(rowIdx, 13).setHorizontalAlignment("left").setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.getRange(rowIdx, 14).setHorizontalAlignment("left").setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
 }
 
 function formatCorporateRow(sheet, rowIdx) {
@@ -117,12 +141,160 @@ function formatCorporateRow(sheet, rowIdx) {
   else if (sv === "CLOSED_WON") sc.setBackground("#D1FAE5").setFontColor("#065F46").setFontWeight("bold");
 }
 
+function safeUpsertBookingRow(sheet, rowData, bookingId) {
+  const lastRow = sheet.getLastRow();
+  let targetRow = -1;
+  if (lastRow > 1 && bookingId) {
+    const searchId = String(bookingId).trim().toUpperCase();
+    const idValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (let i = 0; i < idValues.length; i++) {
+      const existingId = String(idValues[i][0]).trim().toUpperCase();
+      if (existingId && existingId === searchId) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  }
+  const rowIdx = (targetRow > 1) ? targetRow : (lastRow + 1);
+  sheet.getRange(rowIdx, 1, 1, rowData.length).setNumberFormat("@");
+  sheet.getRange(rowIdx, 9).setNumberFormat("0");
+  sheet.getRange(rowIdx, 10).setNumberFormat("0");
+  sheet.getRange(rowIdx, 11).setNumberFormat("₹#,##0");
+  sheet.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
+  return rowIdx;
+}
+
+function safeUpsertCorporateRow(sheet, rowData, leadRef) {
+  const lastRow = sheet.getLastRow();
+  let targetRow = -1;
+  if (lastRow > 1 && leadRef) {
+    const searchRef = String(leadRef).trim().toUpperCase();
+    const idValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (let i = 0; i < idValues.length; i++) {
+      const existingRef = String(idValues[i][0]).trim().toUpperCase();
+      if (existingRef && existingRef === searchRef) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  }
+  const rowIdx = (targetRow > 1) ? targetRow : (lastRow + 1);
+  sheet.getRange(rowIdx, 1, 1, rowData.length).setNumberFormat("@");
+  sheet.getRange(rowIdx, 7).setNumberFormat("0");
+  sheet.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
+  return rowIdx;
+}
+
+function formatAddonsNumbered(rawAddons) {
+  if (!rawAddons) return "None";
+  if (Array.isArray(rawAddons)) {
+    if (rawAddons.length === 0) return "None";
+    return rawAddons.map((item, idx) => (idx + 1) + ". " + String(item).trim().replace(/^\\d+\\.\\s*/, "")).join("\\n");
+  }
+  const str = String(rawAddons).trim();
+  if (!str || str.toLowerCase() === "none") return "None";
+  if (str.includes("\\n")) {
+    return str.split("\\n").map((s) => s.trim()).filter(Boolean).map((line, idx) => (idx + 1) + ". " + line.replace(/^\\d+\\.\\s*/, "")).join("\\n");
+  }
+  const items = str.split(/,\\s*(?=[A-Z0-9])/).map((s) => s.trim()).filter(Boolean);
+  if (items.length > 1) {
+    return items.map((item, idx) => (idx + 1) + ". " + item.replace(/^\\d+\\.\\s*/, "")).join("\\n");
+  }
+  return str.match(/^\\d+\\.\\s*/) ? str : "1. " + str;
+}
+
 function rowFromBooking(b) {
-  return [b.createdAt || new Date().toLocaleString("en-IN"), b.bookingNumber || b.id || "N/A", b.guestName || "Guest", b.phone || "N/A", b.email || "N/A", b.roomTitle || "Standard Suite", b.checkIn || "", b.checkOut || "", b.nights || 1, b.guestsCount || 1, Number(b.totalAmount || 0), (b.status || "CONFIRMED").toUpperCase(), b.specialRequests || "None"];
+  let addonsText = formatAddonsNumbered(b.addons);
+  let rawNotes = b.specialRequests || "";
+  let cleanNotes = rawNotes;
+  if (cleanNotes.includes("Add-ons:") || cleanNotes.includes("[Add-ons:")) {
+    if (!addonsText || addonsText === "None") {
+      const extracted = cleanNotes.split("|")[0].replace(/\\[?Add-ons:\\s*/i, "").replace(/\\]$/, "").trim();
+      addonsText = formatAddonsNumbered(extracted);
+    }
+    cleanNotes = cleanNotes.includes("|") ? cleanNotes.split("|").slice(1).join("|").trim() : "";
+  }
+  const notes = cleanNotes.trim() || "None";
+  return [b.createdAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), b.bookingNumber || b.id || "N/A", b.guestName || "Guest", b.phone || "N/A", b.email || "N/A", b.roomTitle || "Standard Suite", b.checkIn || "", b.checkOut || "", b.nights || 1, b.guestsCount || 1, Number(b.totalAmount || 0), (b.status || "CONFIRMED").toUpperCase(), notes, addonsText || "None"];
+}
+
+function normalizeCorporateLeadId(id) {
+  if (!id) return "CORP-" + Math.floor(100000 + Math.random() * 900000);
+  const s = String(id).trim();
+  if (/^CORP-\\d{6}$/i.test(s)) return s.toUpperCase();
+  if (s.toLowerCase().startsWith("corp-")) {
+    const rest = s.slice(5).replace(/[^a-zA-Z0-9]/g, "");
+    return ("CORP-" + rest).toUpperCase();
+  }
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i);
+    hash |= 0;
+  }
+  const code = Math.abs(hash).toString().slice(0, 6).padStart(6, "7");
+  return "CORP-" + code;
 }
 
 function rowFromCorporateLead(lead) {
-  return [lead.createdAt || new Date().toLocaleString("en-IN"), lead.id || ("CORP-" + Date.now().toString().slice(-6)), lead.company || "N/A", lead.contactPerson || "N/A", lead.email || "N/A", lead.phone || "N/A", Number(lead.employeesCount || 10), lead.preferredDates || "Flexible", lead.nights ? (lead.nights + " Nights") : "", lead.budgetRange || "₹2L - ₹3L", (lead.status || "NEW").toUpperCase(), lead.requirements || "None"];
+  const leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
+  return [lead.createdAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), leadRef, lead.company || "N/A", lead.contactPerson || "N/A", lead.email || "N/A", lead.phone || "N/A", Number(lead.employeesCount || 10), lead.preferredDates || "Flexible", lead.nights ? (lead.nights + " Nights") : "", lead.budgetRange || "₹2L - ₹3L", (lead.status || "NEW").toUpperCase(), lead.requirements || "None"];
+}
+
+function cleanDuplicateBookings() {
+  const sheet = getOrCreateBookingsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 2) {
+    SpreadsheetApp.getActiveSpreadsheet().toast("No duplicate bookings found.", "Clean", 4);
+    return;
+  }
+  const data = sheet.getRange(2, 1, lastRow - 1, BOOKING_HEADERS.length).getValues();
+  const seen = {};
+  const rowsToDelete = [];
+  for (let i = 0; i < data.length; i++) {
+    const bookingId = String(data[i][1] || "").trim().toUpperCase();
+    if (!bookingId || bookingId === "N/A") continue;
+    if (seen[bookingId]) {
+      rowsToDelete.push(i + 2);
+    } else {
+      seen[bookingId] = true;
+    }
+  }
+  for (let r = rowsToDelete.length - 1; r >= 0; r--) {
+    sheet.deleteRow(rowsToDelete[r]);
+  }
+  SpreadsheetApp.getActiveSpreadsheet().toast("Removed " + rowsToDelete.length + " duplicate booking row(s)!", "Duplicates Cleaned", 6);
+}
+
+function formatExistingAddonsToNumbered() {
+  const sheet = getOrCreateBookingsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const range = sheet.getRange(2, 14, lastRow - 1, 1);
+  const values = range.getValues();
+  let updated = 0;
+  for (let i = 0; i < values.length; i++) {
+    const cell = String(values[i][0] || "").trim();
+    if (!cell || cell.toLowerCase() === "none" || cell === "N/A") continue;
+    const formatted = formatAddonsNumbered(cell);
+    if (formatted !== cell) {
+      values[i][0] = formatted;
+      updated++;
+    }
+  }
+  if (updated > 0) {
+    range.setValues(values);
+    range.setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP).setVerticalAlignment("top");
+  }
+  SpreadsheetApp.getActiveSpreadsheet().toast("Converted " + updated + " row(s) to numbered bullets!", "Format Complete", 6);
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("The Cometas Tools")
+    .addItem("Initialize Both Tabs", "getOrCreateBookingsSheet")
+    .addItem("🔢 Format Existing Add-ons as Numbered Bullets", "formatExistingAddonsToNumbered")
+    .addItem("🧹 Clean Up Duplicate Booking Rows", "cleanDuplicateBookings")
+    .addToUi();
 }
 
 function doPost(e) {
@@ -133,12 +305,15 @@ function doPost(e) {
     if (isCorp) {
       const corpSheet = getOrCreateCorporateSheet();
       if (data.action === "batch_corporate_leads" && Array.isArray(data.leads)) {
-        data.leads.forEach(function(l) { corpSheet.appendRow(rowFromCorporateLead(l)); formatCorporateRow(corpSheet, corpSheet.getLastRow()); });
+        data.leads.forEach(function(l) {
+          const rowIdx = safeUpsertCorporateRow(corpSheet, rowFromCorporateLead(l), l.leadRef || l.id);
+          formatCorporateRow(corpSheet, rowIdx);
+        });
         return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.leads.length, target: "Corporate Leads" })).setMimeType(ContentService.MimeType.JSON);
       }
       const lead = data.lead || data;
-      corpSheet.appendRow(rowFromCorporateLead(lead));
-      formatCorporateRow(corpSheet, corpSheet.getLastRow());
+      const rowIdx = safeUpsertCorporateRow(corpSheet, rowFromCorporateLead(lead), lead.leadRef || lead.id);
+      formatCorporateRow(corpSheet, rowIdx);
       return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Corporate lead recorded", target: "Corporate Leads" })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -146,16 +321,22 @@ function doPost(e) {
     if ((data.action === "reset_and_sync" || data.action === "clear_and_sync") && Array.isArray(data.bookings)) {
       const lastRow = bookSheet.getLastRow();
       if (lastRow > 1) bookSheet.deleteRows(2, lastRow - 1);
-      data.bookings.forEach(function(b) { bookSheet.appendRow(rowFromBooking(b)); formatBookingRow(bookSheet, bookSheet.getLastRow()); });
+      data.bookings.forEach(function(b) {
+        const rowIdx = safeUpsertBookingRow(bookSheet, rowFromBooking(b), b.bookingNumber || b.id);
+        formatBookingRow(bookSheet, rowIdx);
+      });
       return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length, target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
     }
     if (data.action === "batch_sync" && Array.isArray(data.bookings)) {
-      data.bookings.forEach(function(b) { bookSheet.appendRow(rowFromBooking(b)); formatBookingRow(bookSheet, bookSheet.getLastRow()); });
+      data.bookings.forEach(function(b) {
+        const rowIdx = safeUpsertBookingRow(bookSheet, rowFromBooking(b), b.bookingNumber || b.id);
+        formatBookingRow(bookSheet, rowIdx);
+      });
       return ContentService.createTextOutput(JSON.stringify({ status: "success", count: data.bookings.length, target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
     }
     const b = data.booking || data;
-    bookSheet.appendRow(rowFromBooking(b));
-    formatBookingRow(bookSheet, bookSheet.getLastRow());
+    const rowIdx = safeUpsertBookingRow(bookSheet, rowFromBooking(b), b.bookingNumber || b.id);
+    formatBookingRow(bookSheet, rowIdx);
     return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Booking recorded", target: "Bookings" })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
@@ -174,7 +355,7 @@ export default function AdminSettingsPage() {
     phone2: "+91 97323 00111",
     phone3: "+91 92427 96931",
     phone4: "+91 76999 93099",
-    whatsappNumber: "+919832012345",
+    whatsappNumber: "+918900087810",
     email: "thecometas2025@gmail.com",
     address: "Upper Latpanchar Forest Road, Kurseong Division, West Bengal - 734008",
     seoKeywords: "Latpanchar Homestay, Rufous-necked Hornbill, Kanchenjunga View, Sittong Orange Orchards",
@@ -193,7 +374,9 @@ export default function AdminSettingsPage() {
 
   // Google Sheets state
   const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetViewUrl, setSheetViewUrl] = useState("");
+  const [sheetViewUrl, setSheetViewUrl] = useState(
+    "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=1679051667#gid=1679051667"
+  );
   const [testingSheet, setTestingSheet] = useState(false);
   const [savingSheet, setSavingSheet] = useState(false);
   const [sheetResult, setSheetResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -218,7 +401,11 @@ export default function AdminSettingsPage() {
     try {
       const savedGeneral = localStorage.getItem("lp_general_settings");
       if (savedGeneral) {
-        setSettings((prev) => ({ ...prev, ...JSON.parse(savedGeneral) }));
+        const parsed = JSON.parse(savedGeneral);
+        if (parsed.whatsappNumber === "+919832012345" || parsed.whatsappNumber === "919832012345" || parsed.whatsappNumber === "+91 98320 12345") {
+          parsed.whatsappNumber = "+918900087810";
+        }
+        setSettings((prev) => ({ ...prev, ...parsed }));
       }
     } catch (e) {
       console.error(e);
@@ -237,7 +424,20 @@ export default function AdminSettingsPage() {
     });
 
     SettingsService.getGeneralSettings().then((gen: any) => {
-      if (gen?.googleSheetUrl) setSheetViewUrl(gen.googleSheetUrl);
+      if (gen) {
+        if (gen.googleSheetUrl) setSheetViewUrl(gen.googleSheetUrl);
+        setSettings((prev) => ({
+          ...prev,
+          ...gen,
+          whatsappNumber:
+            gen.whatsappNumber &&
+            gen.whatsappNumber !== "+919832012345" &&
+            gen.whatsappNumber !== "919832012345" &&
+            gen.whatsappNumber !== "+91 98320 12345"
+              ? gen.whatsappNumber
+              : "+918900087810",
+        }));
+      }
     });
 
     // Load SMTP configuration status

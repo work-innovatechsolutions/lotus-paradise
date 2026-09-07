@@ -1,4 +1,5 @@
 import type { Booking } from "@/types/booking";
+import { normalizeCorporateLeadId } from "@/lib/utils";
 
 function formatRupee(amount: number | string): string {
   const n = Number(amount || 0);
@@ -104,13 +105,50 @@ export function getGuestConfirmationEmailHtml(booking: Booking, siteUrl = "https
         • <strong>Dinner:</strong> Warm mountain supper with Roti/Rice, seasonal greens, Dal &amp; local specialty
       </div>
 
+      <!-- BOOKED ADD-ONS & TRANSFERS (IF ANY) -->
+      ${(() => {
+        const rawAddons = Array.isArray(booking.addons) && booking.addons.length > 0
+          ? booking.addons
+          : (booking.specialRequests && booking.specialRequests.includes("Add-ons:")
+              ? booking.specialRequests.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").split(",").map(s => s.trim()).filter(Boolean)
+              : []);
+        if (rawAddons.length === 0) return "";
+        return `
+        <div class="card" style="margin-bottom: 20px; border: 1.5px solid #C89D45; background-color: #FCFAF6;">
+          <div class="card-title" style="color: #7A5818; margin-bottom: 8px;">
+            ✨ Selected Add-on Experiences &amp; Transfers
+          </div>
+          <table width="100%" style="font-size: 13px;">
+            ${rawAddons.map((addon) => `
+            <tr style="border-bottom: 1px dashed #E2D7BE;">
+              <td style="padding: 8px 0; color: #1A202C; font-weight: 600;">
+                • ${addon}
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #2E7D32; font-weight: bold;">
+                ✓ Confirmed
+              </td>
+            </tr>
+            `).join("")}
+          </table>
+        </div>
+        `;
+      })()}
+
       <!-- SPECIAL REQUESTS (IF ANY) -->
-      ${booking.specialRequests ? `
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">Your Special Requests / Dietary Preferences</div>
-        <p style="margin: 0; font-size: 13px; color: #4A5568; font-style: italic;">&ldquo;${booking.specialRequests}&rdquo;</p>
-      </div>
-      ` : ""}
+      ${(() => {
+        const cleanSpecialRequests = booking.specialRequests
+          ? (booking.specialRequests.includes("|")
+              ? booking.specialRequests.split("|").slice(1).join("|").trim()
+              : (booking.specialRequests.startsWith("Add-ons:") || booking.specialRequests.startsWith("[Add-ons:") ? "" : booking.specialRequests))
+          : "";
+        if (!cleanSpecialRequests) return "";
+        return `
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-title">Your Special Requests / Dietary Preferences</div>
+          <p style="margin: 0; font-size: 13px; color: #4A5568; font-style: italic;">&ldquo;${cleanSpecialRequests}&rdquo;</p>
+        </div>
+        `;
+      })()}
 
       <!-- TOTAL PRICE CARD -->
       <div style="background: linear-gradient(135deg, #2C2473 0%, #15103A 100%); border-radius: 16px; padding: 22px; color: #FFFFFF;">
@@ -143,7 +181,7 @@ export function getGuestConfirmationEmailHtml(booking: Booking, siteUrl = "https
       <!-- CALL TO ACTION & WHATSAPP -->
       <div style="text-align: center; margin-top: 35px; padding-top: 25px; border-top: 1px solid #E2E8F0;">
         <p style="font-size: 13px; color: #4A5568; margin-bottom: 12px;">Need help with cab transfers, early check-in, or custom requests?</p>
-        <a href="https://wa.me/919832012345?text=Hello%20Lotus%20Paradise,%20I%20have%20a%20confirmed%20booking%20(Ref:%20${booking.bookingNumber})" class="whatsapp-btn">
+        <a href="https://wa.me/918900087810?text=Hello%20Lotus%20Paradise,%20I%20have%20a%20confirmed%20booking%20(Ref:%20${booking.bookingNumber})" class="whatsapp-btn">
           💬 Chat with Host on WhatsApp
         </a>
       </div>
@@ -167,6 +205,9 @@ export function getGuestConfirmationEmailHtml(booking: Booking, siteUrl = "https
  * ADMIN NOTIFICATION EMAIL TEMPLATE (ALERT ON NEW BOOKING)
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const DEFAULT_GOOGLE_SHEET_VIEW_URL =
+  "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=1679051667#gid=1679051667";
+
 export function getAdminAlertEmailHtml(
   booking: Booking,
   siteUrl = "http://localhost:3000",
@@ -174,7 +215,7 @@ export function getAdminAlertEmailHtml(
 ): string {
   const checkInFormatted = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkIn;
   const checkOutFormatted = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkOut;
-  const targetSheetLink = sheetUrl || "https://docs.google.com/spreadsheets";
+  const targetSheetLink = sheetUrl && sheetUrl !== "https://docs.google.com/spreadsheets" ? sheetUrl : DEFAULT_GOOGLE_SHEET_VIEW_URL;
 
   return `
 <!DOCTYPE html>
@@ -250,12 +291,36 @@ export function getAdminAlertEmailHtml(
             <td style="padding: 6px 0; color: #64748B;">Duration &amp; Pax:</td>
             <td style="padding: 6px 0; color: #0F172A; font-weight: 700; text-align: right;">${booking.nights} Nights · ${booking.guestsCount} Guests</td>
           </tr>
-          ${booking.specialRequests ? `
-          <tr>
-            <td style="padding: 6px 0; color: #64748B;">Special Notes:</td>
-            <td style="padding: 6px 0; color: #C62828; font-weight: 600; text-align: right;">${booking.specialRequests}</td>
-          </tr>
-          ` : ""}
+          ${(() => {
+            const rawAddons = Array.isArray(booking.addons) && booking.addons.length > 0
+              ? booking.addons
+              : (booking.specialRequests && booking.specialRequests.includes("Add-ons:")
+                  ? booking.specialRequests.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").split(",").map(s => s.trim()).filter(Boolean)
+                  : []);
+            if (rawAddons.length === 0) return "";
+            return `
+            <tr style="border-bottom: 1px solid #EDE8DF; background-color: #FEF9EF;">
+              <td style="padding: 8px 6px; color: #8A5800; font-weight: 700; vertical-align: top;">✨ Booked Add-ons:</td>
+              <td style="padding: 8px 6px; color: #8A5800; font-weight: 700; text-align: right;">
+                ${rawAddons.map(a => `<div>• ${a}</div>`).join("")}
+              </td>
+            </tr>
+            `;
+          })()}
+          ${(() => {
+            const cleanSpecialRequests = booking.specialRequests
+              ? (booking.specialRequests.includes("|")
+                  ? booking.specialRequests.split("|").slice(1).join("|").trim()
+                  : (booking.specialRequests.startsWith("Add-ons:") || booking.specialRequests.startsWith("[Add-ons:") ? "" : booking.specialRequests))
+              : "";
+            if (!cleanSpecialRequests) return "";
+            return `
+            <tr>
+              <td style="padding: 6px 0; color: #64748B;">Special Notes:</td>
+              <td style="padding: 6px 0; color: #C62828; font-weight: 600; text-align: right;">${cleanSpecialRequests}</td>
+            </tr>
+            `;
+          })()}
         </table>
       </div>
 
@@ -300,9 +365,16 @@ Guests: ${booking.guestsCount} Guest(s)
 Package: Fooding & Lodging (All 4 Daily Meals Included: Morning Tea, Breakfast, Lunch, Evening Snacks & Tea, Dinner)
 Total Amount: ${formatRupee(booking.totalAmount)}
 Status: ${booking.status || "CONFIRMED"}
-${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}
+${(() => {
+  const rawAddons = Array.isArray(booking.addons) && booking.addons.length > 0
+    ? booking.addons
+    : (booking.specialRequests && booking.specialRequests.includes("Add-ons:")
+        ? booking.specialRequests.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").split(",").map(s => s.trim()).filter(Boolean)
+        : []);
+  return rawAddons.length > 0 ? `BOOKED ADD-ONS & TRANSFERS:\n${rawAddons.map(a => `• ${a}`).join("\n")}\n` : "";
+})()}${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}
 Location: The Cometas Himalayan Retreat, Latpanchar (4,500 ft), Kurseong, Darjeeling District, West Bengal
-Contact / WhatsApp: +91 98320 12345
+Contact / WhatsApp: +91 89000 87810
 
 We look forward to hosting you in the Himalayas!
 The Cometas Homestay Team`;
@@ -311,7 +383,7 @@ The Cometas Homestay Team`;
 export function getAdminAlertEmailText(booking: Booking, sheetUrl?: string): string {
   const checkInFormatted = booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkIn;
   const checkOutFormatted = booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : booking.checkOut;
-  const targetSheetLink = sheetUrl || "https://docs.google.com/spreadsheets";
+  const targetSheetLink = sheetUrl && sheetUrl !== "https://docs.google.com/spreadsheets" ? sheetUrl : DEFAULT_GOOGLE_SHEET_VIEW_URL;
 
   return `NEW GUEST BOOKING RECEIVED
 
@@ -324,8 +396,14 @@ Dates: ${checkInFormatted} to ${checkOutFormatted} (${booking.nights} nights)
 Total Guests: ${booking.guestsCount}
 Total Amount: ${formatRupee(booking.totalAmount)}
 Status: ${booking.status || "CONFIRMED"}
-${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}
-Google Sheet: ${targetSheetLink}
+${(() => {
+  const rawAddons = Array.isArray(booking.addons) && booking.addons.length > 0
+    ? booking.addons
+    : (booking.specialRequests && booking.specialRequests.includes("Add-ons:")
+        ? booking.specialRequests.split("|")[0].replace(/\[?Add-ons:\s*/i, "").replace(/\]$/, "").split(",").map(s => s.trim()).filter(Boolean)
+        : []);
+  return rawAddons.length > 0 ? `BOOKED ADD-ONS:\n${rawAddons.map(a => `• ${a}`).join("\n")}\n` : "";
+})()}${booking.specialRequests ? `Special Requests: ${booking.specialRequests}\n` : ""}Google Sheet: ${targetSheetLink}
 Timestamp: ${new Date().toLocaleString("en-IN")}`;
 }
 
@@ -342,6 +420,7 @@ export interface CorporateLeadEmailData {
   budgetRange?: string;
   requirements?: string;
   id?: string;
+  leadRef?: string;
   createdAt?: string;
 }
 
@@ -354,7 +433,7 @@ export function getCorporateGuestEmailHtml(
   lead: CorporateLeadEmailData,
   siteUrl = "https://thecometas.com"
 ): string {
-  const leadRef = lead.id || `CORP-${Date.now().toString().slice(-6)}`;
+  const leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -471,7 +550,7 @@ export function getCorporateGuestEmailHtml(
       <!-- WHATSAPP CTA -->
       <div style="text-align: center; margin-top: 30px;">
         <p style="font-size: 13px; color: #4A5568; margin-bottom: 12px;">Need to expedite your proposal or discuss customized cab transfers?</p>
-        <a href="https://wa.me/919832012345?text=Hello%20The%20Cometas,%20we%20submitted%20a%20corporate%20retreat%20inquiry%20for%20${encodeURIComponent(lead.company)}%20(Ref:%20${leadRef})" class="whatsapp-btn">
+        <a href="https://wa.me/918900087810?text=Hello%20The%20Cometas,%20we%20submitted%20a%20corporate%20retreat%20inquiry%20for%20${encodeURIComponent(lead.company)}%20(Ref:%20${leadRef})" class="whatsapp-btn">
           💬 Chat with Corporate Concierge on WhatsApp
         </a>
       </div>
@@ -491,7 +570,7 @@ export function getCorporateGuestEmailHtml(
 }
 
 export function getCorporateGuestEmailText(lead: CorporateLeadEmailData): string {
-  const leadRef = lead.id || `CORP-${Date.now().toString().slice(-6)}`;
+  const leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
   return `Dear ${lead.contactPerson},
 
 Thank you for reaching out to The Cometas Homestay for ${lead.company}'s upcoming mountain offsite retreat! We have received your inquiry and our Corporate Concierge team is preparing a customized proposal.
@@ -511,7 +590,7 @@ WHAT HAPPENS NEXT:
 Our Corporate Coordinator is checking room allotment and will send a detailed itinerary and quotation to ${lead.email} within 4 hours.
 
 If you have urgent questions or need help arranging airport cabs from Bagdogra (IXB) / NJP, contact us directly:
-Phone / WhatsApp: +91 98320 12345
+Phone / WhatsApp: +91 89000 87810
 Email: thecometas2025@gmail.com
 Web: https://thecometas.com/corporate
 
@@ -525,12 +604,17 @@ The Cometas Himalayan Retreat, Latpanchar`;
  * ADMIN CORPORATE LEAD ALERT EMAIL TEMPLATE
  * ─────────────────────────────────────────────────────────────────────────────
  */
+const DEFAULT_CORPORATE_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=299987095#gid=299987095";
+
 export function getCorporateAdminAlertHtml(
   lead: CorporateLeadEmailData,
-  siteUrl = "http://localhost:3000"
+  siteUrl = "http://localhost:3000",
+  sheetUrl?: string
 ): string {
-  const leadRef = lead.id || `CORP-${Date.now().toString().slice(-6)}`;
+  const leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
   const cleanPhone = (lead.phone || "").replace(/[^0-9]/g, "");
+  const targetSheetLink = sheetUrl && sheetUrl !== "https://docs.google.com/spreadsheets" ? sheetUrl : DEFAULT_CORPORATE_SHEET_URL;
 
   return `
 <!DOCTYPE html>
@@ -622,6 +706,9 @@ export function getCorporateAdminAlertHtml(
 
       <!-- ACTION BUTTONS -->
       <div style="text-align: center; margin-top: 25px;">
+        <a href="${targetSheetLink}" class="btn" style="background-color: #0F9D58; color: #FFFFFF !important;">
+          📊 Open Corporate Sheet
+        </a>
         <a href="https://wa.me/${cleanPhone}?text=Hello%20${encodeURIComponent(lead.contactPerson)},%20thank%20you%20for%20your%20interest%20in%20The%20Cometas%20corporate%20retreat%20for%20${encodeURIComponent(lead.company)}" class="btn-green">
           💬 WhatsApp Client
         </a>
@@ -636,8 +723,9 @@ export function getCorporateAdminAlertHtml(
 `;
 }
 
-export function getCorporateAdminAlertText(lead: CorporateLeadEmailData): string {
-  const leadRef = lead.id || `CORP-${Date.now().toString().slice(-6)}`;
+export function getCorporateAdminAlertText(lead: CorporateLeadEmailData, sheetUrl?: string): string {
+  const leadRef = normalizeCorporateLeadId(lead.leadRef || lead.id);
+  const targetSheetLink = sheetUrl && sheetUrl !== "https://docs.google.com/spreadsheets" ? sheetUrl : DEFAULT_CORPORATE_SHEET_URL;
   return `⚡ NEW B2B CORPORATE RETREAT INQUIRY
 
 Ref ID: ${leadRef}
@@ -649,6 +737,7 @@ ${lead.budgetRange ? `Budget: ${lead.budgetRange}\n` : ""}
 Phone: ${lead.phone}
 Email: ${lead.email}
 ${lead.requirements ? `Special Requests: ${lead.requirements}\n` : ""}
+Corporate Sheet: ${targetSheetLink}
 Timestamp: ${new Date().toLocaleString("en-IN")}`;
 }
 

@@ -155,26 +155,39 @@ export async function sendBookingEmails(booking: Booking, customConfig?: SmtpCon
   const adminTarget = config.adminEmail || config.user;
   if (adminTarget && adminTarget.includes("@")) {
     try {
-      // Resolve Google Sheet view link
-      let sheetUrl =
-        process.env.GOOGLE_SHEET_URL ||
-        process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL;
+      // Resolve Google Sheet view link (strictly validating docs.google.com to never leak webhook echo links)
+      const DEFAULT_STANDARD_SHEET_URL =
+        "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=1679051667#gid=1679051667";
+      let sheetUrl = "";
+
+      try {
+        const db = getAdminDb();
+        const docSnap = await db.collection("siteSettings").doc("general").get();
+        if (docSnap.exists) {
+          const candidate = docSnap.data()?.googleSheetUrl;
+          if (typeof candidate === "string" && candidate.startsWith("https://docs.google.com/spreadsheets")) {
+            sheetUrl = candidate;
+          }
+        }
+      } catch {}
 
       if (!sheetUrl) {
-        try {
-          const db = getAdminDb();
-          const docSnap = await db.collection("siteSettings").doc("general").get();
-          if (docSnap.exists) {
-            const data = docSnap.data();
-            sheetUrl = data?.googleSheetUrl;
+        const envCandidates = [
+          process.env.NEXT_PUBLIC_GOOGLE_SHEET_VIEW_URL,
+          process.env.GOOGLE_SHEET_VIEW_URL,
+          process.env.GOOGLE_SHEET_URL,
+          process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL,
+        ];
+        for (const candidate of envCandidates) {
+          if (typeof candidate === "string" && candidate.startsWith("https://docs.google.com/spreadsheets")) {
+            sheetUrl = candidate;
+            break;
           }
-        } catch {}
+        }
       }
 
       if (!sheetUrl) {
-        sheetUrl =
-          process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL ||
-          "https://docs.google.com/spreadsheets";
+        sheetUrl = DEFAULT_STANDARD_SHEET_URL;
       }
 
       const adminHtml = getAdminAlertEmailHtml(booking, "http://localhost:3000", sheetUrl);
@@ -309,8 +322,9 @@ export async function sendCorporateInquiryEmails(
   const adminTarget = config.adminEmail || config.user;
   if (adminTarget && adminTarget.includes("@")) {
     try {
-      const adminHtml = getCorporateAdminAlertHtml(lead, "http://localhost:3000");
-      const adminText = getCorporateAdminAlertText(lead);
+      const corpSheetUrl = "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=299987095#gid=299987095";
+      const adminHtml = getCorporateAdminAlertHtml(lead, "http://localhost:3000", corpSheetUrl);
+      const adminText = getCorporateAdminAlertText(lead, corpSheetUrl);
       const info = await transporter.sendMail({
         from: fromAddress,
         to: adminTarget.trim(),

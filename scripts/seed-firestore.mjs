@@ -653,7 +653,7 @@ const SITE_SETTINGS_GENERAL = {
   phone2: "+91 97323 00111",
   phone3: "+91 92427 96931",
   phone4: "+91 76999 93099",
-  whatsappNumber: "+919832012345",
+  whatsappNumber: "+918900087810",
   email: "thecometas2025@gmail.com",
   address: "Upper Latpanchar Forest Road, Kurseong Division, Darjeeling District, West Bengal - 734008",
   mapUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14238.123456789!2d88.412!3d26.921",

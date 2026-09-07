@@ -11,11 +11,12 @@ const DEFAULT_SETTINGS: SiteGeneralSettings = {
   phone2: "+91 97323 00111",
   phone3: "+91 92427 96931",
   phone4: "+91 76999 93099",
-  whatsappNumber: "+919832012345",
+  whatsappNumber: "+918900087810",
   email: "thecometas2025@gmail.com",
   address: "Upper Latpanchar Forest Road, Kurseong Division, Darjeeling District, West Bengal - 734008",
   mapUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d14238.123456789!2d88.412!3d26.921",
   seoKeywords: "Latpanchar Homestay, Rufous-necked Hornbill, Kanchenjunga View, Sittong Orange Orchards, Darjeeling Retreat",
+  googleSheetUrl: "https://docs.google.com/spreadsheets/d/1A1SVgbQfoOW7HqDcB8EmkXCu3-4bU-UERvgYVJUv0Q0/edit?pli=1&gid=1679051667#gid=1679051667",
 };
 
 const DEFAULT_SECTIONS: HomepageSectionConfig[] = [
@@ -35,15 +36,28 @@ const DEFAULT_SECTIONS: HomepageSectionConfig[] = [
   { id: "faq", name: "Frequently Asked Questions Accordion", enabled: true, order: 14 },
 ];
 
+function sanitizeWhatsapp(num?: string): string {
+  if (!num || num === "+919832012345" || num === "919832012345" || num === "+91 98320 12345") {
+    return "+918900087810";
+  }
+  return num;
+}
+
 async function getStoredSettings(): Promise<SiteGeneralSettings> {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const idb = await IdbStorage.get<SiteGeneralSettings>(SETTINGS_KEY);
-    if (idb && typeof idb === "object") return idb;
+    if (idb && typeof idb === "object") {
+      idb.whatsappNumber = sanitizeWhatsapp(idb.whatsappNumber);
+      return idb;
+    }
     const raw = IdbStorage.safeLocalGet(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") return parsed;
+      if (parsed && typeof parsed === "object") {
+        parsed.whatsappNumber = sanitizeWhatsapp(parsed.whatsappNumber);
+        return parsed;
+      }
     }
   } catch {}
   return DEFAULT_SETTINGS;
@@ -77,6 +91,7 @@ export const SettingsService = {
       const snapshot = (await Promise.race([fetchPromise, timeoutPromise])) as any;
       if (snapshot && snapshot.exists()) {
         const firestoreData = snapshot.data() as SiteGeneralSettings;
+        firestoreData.whatsappNumber = sanitizeWhatsapp(firestoreData.whatsappNumber);
         if (typeof window !== "undefined") {
           await IdbStorage.set(SETTINGS_KEY, firestoreData);
           IdbStorage.safeLocalSet(SETTINGS_KEY, JSON.stringify(firestoreData));

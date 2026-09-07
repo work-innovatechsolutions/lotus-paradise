@@ -9,15 +9,19 @@ import {
   CheckCircle2,
   Clock,
   Send,
+  RefreshCw,
+  ExternalLink,
   Loader2,
   RotateCw,
   MessageSquare,
   FileSpreadsheet,
 } from "lucide-react";
 import { GoogleSheetService } from "@/services/google-sheet.service";
+import { normalizeCorporateLeadId } from "@/lib/utils";
 
 interface CorporateLead {
   id: string;
+  leadRef?: string;
   company: string;
   contactPerson: string;
   email: string;
@@ -198,6 +202,10 @@ export default function AdminCorporateLeadsPage() {
                   <span className="bg-[#C62828] text-white text-xs font-accent font-bold px-3.5 py-1 rounded-full border border-[#C89D45]/50 flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5" />
                     {lead.company}
+                  </span>
+
+                  <span className="text-[#F3D27A] font-mono text-[11px] font-bold px-2.5 py-1 rounded-full bg-black/40 border border-[#C89D45]/40">
+                    Ref: {normalizeCorporateLeadId(lead.leadRef || lead.id)}
                   </span>
 
                   <span

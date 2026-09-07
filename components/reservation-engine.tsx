@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,8 +23,71 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Mountain,
+  Loader2,
 } from "lucide-react";
+
+export interface ExperienceAddon {
+  id: string;
+  title: string;
+  price: number;
+  perPerson: boolean;
+  desc: string;
+}
+
+export const EXPERIENCE_ADDONS: ExperienceAddon[] = [
+  {
+    id: "birding",
+    title: "Guided Rufous-Necked Hornbill Birding Trail",
+    price: 1500,
+    perPerson: true,
+    desc: "Early morning 3-hour trek led by a native Lepcha naturalist with spotting scopes (₹1,500 per person).",
+  },
+  {
+    id: "bonfire",
+    title: "Private Mountain Sunset Bonfire",
+    price: 800,
+    perPerson: false,
+    desc: "Wood-fired pinecone bonfire on the private veranda with local acoustic music.",
+  },
+  {
+    id: "barbecue",
+    title: "Himalayan Barbecue Feast",
+    price: 1200,
+    perPerson: false,
+    desc: "Sizzling wood-fired mountain barbecue platter prepared live with local Himalayan herbs.",
+  },
+  {
+    id: "bagdogra_pickup",
+    title: "Bagdogra Airport (IXB) Cab Pickup",
+    price: 2500,
+    perPerson: false,
+    desc: "Private 4x4 Bolero / Scorpio cab pickup directly from Bagdogra Airport to the homestay.",
+  },
+  {
+    id: "bagdogra_drop",
+    title: "Bagdogra Airport (IXB) Cab Drop",
+    price: 2500,
+    perPerson: false,
+    desc: "Comfortable private Bolero / Scorpio cab transfer from the homestay to Bagdogra Airport.",
+  },
+  {
+    id: "njp_pickup",
+    title: "NJP Station Cab Pickup",
+    price: 2500,
+    perPerson: false,
+    desc: "Private 4x4 Bolero / Scorpio cab pickup directly from New Jalpaiguri (NJP) Railway Station to the homestay.",
+  },
+  {
+    id: "njp_drop",
+    title: "NJP Station Cab Drop",
+    price: 2500,
+    perPerson: false,
+    desc: "Comfortable private Bolero / Scorpio cab transfer from the homestay to New Jalpaiguri (NJP) Railway Station.",
+  },
+];
 
 export function ReservationEngine() {
   const searchParams = useSearchParams();
@@ -45,10 +108,16 @@ export function ReservationEngine() {
   const [availabilityError, setAvailabilityError] = useState("");
   const [activeImgIndexes, setActiveImgIndexes] = useState<{ [key: string]: number }>({});
   const [addons, setAddons] = useState<{ [key: string]: boolean }>({
-    birding: true,
+    birding: false,
     bonfire: false,
-    pickup: false,
+    barbecue: false,
+    bagdogra_pickup: false,
+    bagdogra_drop: false,
+    njp_pickup: false,
+    njp_drop: false,
   });
+
+  const addonsScrollRef = useRef<HTMLDivElement>(null);
 
   const [guestDetails, setGuestDetails] = useState({
     name: "",
@@ -59,6 +128,7 @@ export function ReservationEngine() {
 
   const [bookingConfirmed, setBookingConfirmed] = useState<any | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<"standard" | "premium">("standard");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync with searchParams when loaded
   useEffect(() => {
@@ -106,10 +176,19 @@ export function ReservationEngine() {
   const pricePerPaxPerDay = selectedPackage === "premium" ? premiumRate : standardRate;
   const roomTotal = pricePerPaxPerDay * Number(guestsCount || 1) * nights;
 
-  const birdingAddonPrice = addons.birding ? 1200 : 0;
-  const bonfireAddonPrice = addons.bonfire ? 800 : 0;
-  const pickupAddonPrice = addons.pickup ? 2800 : 0;
-  const grandTotal = roomTotal + birdingAddonPrice + bonfireAddonPrice + pickupAddonPrice;
+  const addonsTotal = useMemo(() => {
+    return EXPERIENCE_ADDONS.reduce((sum, item) => {
+      if (!addons[item.id]) return sum;
+      const cost = item.perPerson ? item.price * Number(guestsCount || 1) : item.price;
+      return sum + cost;
+    }, 0);
+  }, [addons, guestsCount]);
+
+  const grandTotal = roomTotal + addonsTotal;
+
+  const selectedAddonsList = useMemo(() => {
+    return EXPERIENCE_ADDONS.filter((item) => Boolean(addons[item.id]));
+  }, [addons]);
 
   const handleValidateDates = async () => {
     setAvailabilityError("");
@@ -117,25 +196,28 @@ export function ReservationEngine() {
       setAvailabilityError("Check-out date must be after check-in date.");
       return;
     }
-    if (selectedRoom) {
-      const available = await AvailabilityService.isRoomAvailable(selectedRoom.id, checkIn, checkOut);
-      if (!available) {
-        setAvailabilityError("Selected room is not available for these dates. Please choose different dates.");
-        return;
-      }
-    }
     setStep(3);
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     const bookingNo = generateBookingNumber();
+
+    const selectedAddonsFormatted = selectedAddonsList.map((a) => {
+      const cost = a.perPerson ? a.price * Number(guestsCount || 1) : a.price;
+      return a.perPerson
+        ? `${a.title} (${guestsCount} pax - ₹${cost})`
+        : `${a.title} (₹${cost})`;
+    });
 
     const bookingPayload = {
       bookingNumber: bookingNo,
-      guestName: guestDetails.name,
-      email: guestDetails.email,
-      phone: guestDetails.phone,
+      guestName: guestDetails.name.trim(),
+      email: guestDetails.email.trim(),
+      phone: guestDetails.phone.trim(),
       roomId: selectedRoom?.id || "room-1",
       roomTitle: `${selectedRoom?.title || "Mountain Room"} [${selectedPackage === "premium" ? "PREMIUM PACKAGE" : "STANDARD PACKAGE"} - Fooding & Lodging]${selectedProperty ? ` (${selectedProperty.name})` : ""}`,
       pricePerNight: pricePerPaxPerDay,
@@ -146,24 +228,32 @@ export function ReservationEngine() {
       checkOut,
       nights,
       guestsCount,
-      specialRequests: guestDetails.specialRequests,
+      addons: selectedAddonsFormatted,
+      specialRequests: guestDetails.specialRequests?.trim() || "",
       status: "CONFIRMED" as const,
+      createdAt: new Date().toISOString(),
     };
 
     try {
+      // BookingService.createBooking persists to Firestore, notifies admin,
+      // and triggers the single authoritative Google Sheet sync
       const created = await BookingService.createBooking(bookingPayload);
       setBookingConfirmed(created);
-    } catch {
+      setStep(5);
+    } catch (err) {
+      console.warn("Booking creation fallback trigger:", err);
       setBookingConfirmed(bookingPayload);
+      setStep(5);
 
+      // Fallback email dispatch in case background chain failed
       fetch("/api/send-booking-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ booking: bookingPayload }),
-      }).catch((err) => console.warn("Email dispatch error:", err));
+      }).catch((emailErr) => console.warn("Fallback email dispatch error:", emailErr));
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setStep(5);
   };
 
   const cycleImage = (roomId: string, imagesCount: number, dir: 1 | -1, e: React.MouseEvent) => {
@@ -753,7 +843,7 @@ export function ReservationEngine() {
             STEP 3: ADD-ONS
         ══════════════════════════════════════════════════════════════════════ */}
         {step === 3 && (
-          <div className="max-w-2xl mx-auto glass-ivory rounded-3xl p-8 border border-[#C89D45] shadow-2xl space-y-6 animate-in fade-in duration-300">
+          <div className="max-w-2xl mx-auto glass-ivory rounded-3xl p-6 sm:p-8 border border-[#C89D45] shadow-2xl space-y-6 animate-in fade-in duration-300">
             <div className="text-center space-y-1">
               <span className="text-xs font-accent uppercase tracking-widest text-[#C62828] font-bold">
                 Step 3
@@ -762,79 +852,132 @@ export function ReservationEngine() {
                 Curate Your Experiences
               </h2>
               <p className="text-xs text-gray-600">
-                Enhance your stay with guided birding walks and Himalayan bonfires
+                Enhance your stay with guided birding walks, evening campfires, and private cab transfers
               </p>
             </div>
 
-            <div className="space-y-4">
-              {[
-                {
-                  id: "birding",
-                  title: "Guided Rufous-Necked Hornbill Birding Trail",
-                  price: 1200,
-                  desc: "Early morning 3-hour trek led by a native Lepcha naturalist with spotting scopes.",
-                },
-                {
-                  id: "bonfire",
-                  title: "Private Mountain Sunset Bonfire & Barbecue",
-                  price: 800,
-                  desc: "Wood-fired pinecone bonfire on the private veranda with local acoustic music.",
-                },
-                {
-                  id: "pickup",
-                  title: "Bagdogra Airport (IXB) / NJP Station Cab Transfer",
-                  price: 2800,
-                  desc: "Private 4x4 Bolero pickup directly from the airport/railway station to the homestay.",
-                },
-              ].map((addon) => (
-                <div
-                  key={addon.id}
-                  onClick={() => setAddons({ ...addons, [addon.id]: !addons[addon.id] })}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
-                    addons[addon.id]
-                      ? "border-[#C62828] bg-white shadow-md"
-                      : "border-gray-200 bg-gray-50/50 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-serif font-bold text-sm text-[#1F1F1F]">
-                        {addon.title}
-                      </span>
-                      <span className="text-xs font-accent font-bold text-[#C62828]">
-                        +{formatPrice(addon.price)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 font-sans">{addon.desc}</p>
-                  </div>
-                  <div
-                    className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 ${
-                      addons[addon.id]
-                        ? "bg-[#C62828] border-[#C62828] text-white"
-                        : "border-gray-300"
-                    }`}
-                  >
-                    {addons[addon.id] && <Check className="w-3.5 h-3.5" />}
+            {/* Internal Scrollable Add-ons Container */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 font-sans px-1">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span>Custom Mountain Add-ons</span>
+                  <span className="text-[#C89D45]">•</span>
+                  <span className="text-gray-400">Scroll to view all 7 options</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-accent font-bold text-[#C62828]">
+                    {selectedAddonsList.length} selected
+                  </span>
+                  <div className="flex items-center gap-0.5 bg-white/90 p-0.5 rounded-lg border border-[#C89D45]/30 shadow-xs">
+                    <button
+                      type="button"
+                      title="Scroll up"
+                      onClick={() => addonsScrollRef.current?.scrollBy({ top: -130, behavior: "smooth" })}
+                      className="p-1 rounded hover:bg-[#C89D45]/20 text-gray-600 hover:text-[#C62828] transition-colors cursor-pointer"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Scroll down"
+                      onClick={() => addonsScrollRef.current?.scrollBy({ top: 130, behavior: "smooth" })}
+                      className="p-1 rounded hover:bg-[#C89D45]/20 text-gray-600 hover:text-[#C62828] transition-colors cursor-pointer"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              <div
+                ref={addonsScrollRef}
+                data-lenis-prevent
+                data-lenis-prevent-wheel
+                data-lenis-prevent-touch
+                onWheel={(e) => {
+                  e.stopPropagation();
+                }}
+                className="space-y-3 h-[310px] sm:h-[330px] overflow-y-auto pr-2 addon-scrollbar rounded-2xl relative"
+                style={{
+                  touchAction: "pan-y",
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}
+              >
+                {EXPERIENCE_ADDONS.map((addon) => {
+                  const isSelected = Boolean(addons[addon.id]);
+                  const itemTotal = addon.perPerson
+                    ? addon.price * Number(guestsCount || 1)
+                    : addon.price;
+
+                  return (
+                    <div
+                      key={addon.id}
+                      onClick={() => setAddons({ ...addons, [addon.id]: !isSelected })}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
+                        isSelected
+                          ? "border-[#C62828] bg-white shadow-md ring-1 ring-[#C62828]/20"
+                          : "border-gray-200 bg-gray-50/60 hover:border-gray-300 hover:bg-white"
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-serif font-bold text-sm text-[#1F1F1F]">
+                            {addon.title}
+                          </span>
+                          <span className="text-xs font-accent font-bold text-[#C62828]">
+                            +{formatPrice(addon.price)}
+                            {addon.perPerson ? " / person" : ""}
+                          </span>
+                          {addon.perPerson && Number(guestsCount) > 1 && isSelected && (
+                            <span className="text-[11px] font-sans text-gray-500 font-medium">
+                              ({formatPrice(itemTotal)} for {guestsCount} guests)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 font-sans leading-relaxed">
+                          {addon.desc}
+                        </p>
+                      </div>
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected
+                            ? "bg-[#C62828] border-[#C62828] text-white"
+                            : "border-gray-300 bg-white"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="bg-[#2C2473] text-white rounded-2xl p-4 flex items-center justify-between text-xs font-accent">
-              <span>Estimated Total:</span>
-              <span className="text-[#C89D45] font-bold text-base">
+              <div className="space-y-0.5">
+                <span className="block text-gray-300 text-[11px]">Estimated Total (Stay + Add-ons):</span>
+                {selectedAddonsList.length > 0 && (
+                  <span className="text-[10px] text-amber-200 block">
+                    Includes {selectedAddonsList.length} experience add-on(s)
+                  </span>
+                )}
+              </div>
+              <span className="text-[#C89D45] font-bold text-base sm:text-lg">
                 {formatPrice(grandTotal)}
               </span>
             </div>
 
             <div className="flex justify-between gap-4">
               <button
+                type="button"
                 onClick={() => setStep(2)}
                 className="px-6 py-3 rounded-xl border border-gray-300 font-accent text-xs font-bold uppercase hover:bg-gray-100 transition-colors"
               >
                 Back
               </button>
               <button
+                type="button"
                 onClick={() => setStep(4)}
                 className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-8 py-3 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow"
               >
@@ -947,6 +1090,29 @@ export function ReservationEngine() {
                 <span className="text-gray-600 font-medium">Rate per Pax:</span>
                 <span className="font-medium text-gray-800">₹{pricePerPaxPerDay} / pax / day (All Meals Included)</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 font-medium">Room &amp; Meals Subtotal:</span>
+                <span className="font-medium text-gray-800">{formatPrice(roomTotal)}</span>
+              </div>
+              {selectedAddonsList.length > 0 && (
+                <div className="border-t border-[#C89D45]/20 pt-2 space-y-1">
+                  <span className="text-gray-600 font-medium block">Selected Add-on Experiences:</span>
+                  {selectedAddonsList.map((addon) => {
+                    const itemCost = addon.perPerson
+                      ? addon.price * Number(guestsCount || 1)
+                      : addon.price;
+                    return (
+                      <div key={addon.id} className="flex justify-between text-gray-700 pl-2">
+                        <span>
+                          • {addon.title}{" "}
+                          {addon.perPerson ? `(${guestsCount} pax)` : ""}
+                        </span>
+                        <span className="font-semibold text-[#2C2473]">+{formatPrice(itemCost)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex justify-between items-center text-sm font-bold text-[#1F1F1F] pt-2.5 border-t border-[#C89D45]/20">
                 <span className="text-xs uppercase tracking-wider text-[#7A5818] font-bold">Final Total Amount:</span>
                 <span className="text-[#C62828] text-xl font-serif font-extrabold">{formatPrice(grandTotal)}</span>
@@ -963,10 +1129,20 @@ export function ReservationEngine() {
               </button>
               <button
                 type="submit"
-                className="bg-[#C62828] hover:bg-[#8B1E1E] text-white px-8 py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg border border-[#C89D45]"
+                disabled={isSubmitting}
+                className="bg-[#C62828] hover:bg-[#8B1E1E] disabled:opacity-65 disabled:cursor-not-allowed text-white px-8 py-3.5 rounded-xl font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg border border-[#C89D45] transition-all"
               >
-                <ShieldCheck className="w-4 h-4 text-[#C89D45]" />
-                <span>Confirm Reservation</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-[#C89D45] animate-spin" />
+                    <span>Confirming Reservation...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-[#C89D45]" />
+                    <span>Confirm Reservation</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -1049,6 +1225,12 @@ export function ReservationEngine() {
                 <p><strong>Check-In:</strong> {bookingConfirmed.checkIn}</p>
                 <p><strong>Check-Out:</strong> {bookingConfirmed.checkOut} ({bookingConfirmed.nights} Nights)</p>
                 <p><strong>Guests:</strong> {bookingConfirmed.guestsCount} Guests</p>
+                {selectedAddonsList.length > 0 && (
+                  <p>
+                    <strong>Add-ons Reserved:</strong>{" "}
+                    {selectedAddonsList.map((a) => a.title).join(", ")}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1081,7 +1263,7 @@ export function ReservationEngine() {
                 <strong>Homestay Address:</strong> Upper Latpanchar Forest Road, Kurseong Hill Division, Darjeeling District, West Bengal - 734008
               </p>
               <p>
-                <strong>Contact Desk:</strong> +91 98320 12345 / +91 97323 00111 · <strong>Email:</strong> thecometas2025@gmail.com
+                <strong>Contact Desk:</strong> +91 89000 87810 / +91 98320 12345 / +91 97323 00111 · <strong>Email:</strong> thecometas2025@gmail.com
               </p>
               <p className="text-[10px] text-gray-500 italic pt-1">
                 * Check-in: 12:00 PM | Check-out: 10:00 AM. Please present a valid government-approved photo ID (Aadhaar / Passport / Voter ID) for each adult guest at check-in.

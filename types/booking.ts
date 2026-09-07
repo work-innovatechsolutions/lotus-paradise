@@ -23,6 +23,7 @@ export interface Booking {
   nights: number;
   guestsCount: number;
   specialRequests?: string;
+  addons?: string[];
   status: BookingStatus;
   createdAt: string;
 }

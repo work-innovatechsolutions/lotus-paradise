@@ -10,9 +10,11 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { IdbStorage } from "@/lib/idb-storage";
+import { generateCorporateLeadNumber } from "@/lib/utils";
 
 export interface CorporateLeadData {
   id: string;
+  leadRef?: string;
   company: string;
   contactPerson: string;
   email: string;
@@ -94,9 +96,11 @@ export const CorporateService = {
   },
 
   async createLead(data: Omit<CorporateLeadData, "id" | "status" | "createdAt">): Promise<CorporateLeadData> {
+    const leadNum = generateCorporateLeadNumber();
     const created: CorporateLeadData = {
       ...data,
-      id: `corp-${Date.now()}`,
+      id: leadNum,
+      leadRef: leadNum,
       status: "NEW",
       createdAt: new Date().toISOString(),
     };
