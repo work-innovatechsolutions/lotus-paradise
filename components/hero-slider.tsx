@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HeroService } from "@/services/hero.service";
@@ -12,6 +12,7 @@ export default function HeroSlider() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // GSAP timeline refs
   const badgeRef = useRef<HTMLDivElement>(null);
@@ -43,16 +44,40 @@ export default function HeroSlider() {
     };
   }, []);
 
-  // Auto-advance slides
-  useEffect(() => {
-    if (slides.length === 0) return;
-    const timer = setInterval(() => {
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (slides.length <= 1) return;
+    timerRef.current = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % slides.length);
     }, 7000);
-    return () => clearInterval(timer);
-  }, [slides]);
+  }, [slides.length]);
 
-  // GSAP slide transition animation — runs every time current index changes
+  const nextSlide = useCallback(() => {
+    if (slides.length <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % slides.length);
+    startTimer();
+  }, [slides.length, startTimer]);
+
+  const prevSlide = useCallback(() => {
+    if (slides.length <= 1) return;
+    setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
+    startTimer();
+  }, [slides.length, startTimer]);
+
+  const goToSlide = useCallback((idx: number) => {
+    setCurrentIndex(idx);
+    startTimer();
+  }, [startTimer]);
+
+  // Auto-advance slides with timer cleanup
+  useEffect(() => {
+    startTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startTimer]);
+
+  // GSAP slide transition animation — runs smoothly on slide switch
   useEffect(() => {
     if (slides.length === 0) return;
 
@@ -77,20 +102,11 @@ export default function HeroSlider() {
         return;
       }
 
-      // Reset targets to initial hidden state
+      // Reset targets to initial state cleanly
       gsap.set(targets, {
         opacity: 0,
-        y: 20,
+        y: 22,
       });
-
-      // Split heading characters using SplitType
-      let splitHeading: any = null;
-      if (headingRef.current) {
-        const SplitType = (await import("split-type")).default;
-        // Clean up previous split formatting (React will have rendered new plain text)
-        splitHeading = new SplitType(headingRef.current, { types: "words,chars" });
-        gsap.set(splitHeading.chars, { opacity: 0, y: 30, rotateX: -45 });
-      }
 
       const tl = gsap.timeline();
 
@@ -98,37 +114,21 @@ export default function HeroSlider() {
       tl.to(badgeRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.65,
+        duration: 0.55,
         ease: "power3.out",
       });
 
-      // 2. Heading characters stagger in
-      if (splitHeading && splitHeading.chars.length > 0) {
-        gsap.set(headingRef.current, { opacity: 1, y: 0 });
-        tl.to(
-          splitHeading.chars,
-          {
-            opacity: 1,
-            y: 0,
-            rotateX: 0,
-            duration: 0.55,
-            ease: "back.out(1.4)",
-            stagger: { amount: 0.35 },
-          },
-          "-=0.45"
-        );
-      } else {
-        tl.to(
-          headingRef.current,
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.65,
-            ease: "power3.out",
-          },
-          "-=0.45"
-        );
-      }
+      // 2. Heading smoothly animates without DOM splitting thrash
+      tl.to(
+        headingRef.current,
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          ease: "power3.out",
+        },
+        "-=0.4"
+      );
 
       // 3. Subtitle slides up
       tl.to(
@@ -136,10 +136,10 @@ export default function HeroSlider() {
         {
           opacity: 1,
           y: 0,
-          duration: 0.65,
+          duration: 0.6,
           ease: "power2.out",
         },
-        "-=0.35"
+        "-=0.4"
       );
 
       // 4. Location tag
@@ -148,10 +148,10 @@ export default function HeroSlider() {
         {
           opacity: 1,
           y: 0,
-          duration: 0.55,
+          duration: 0.5,
           ease: "power2.out",
         },
-        "-=0.4"
+        "-=0.35"
       );
 
       // 5. Buttons stagger up
@@ -160,7 +160,7 @@ export default function HeroSlider() {
         {
           opacity: 1,
           y: 0,
-          duration: 0.65,
+          duration: 0.6,
           ease: "power3.out",
         },
         "-=0.3"
@@ -168,7 +168,7 @@ export default function HeroSlider() {
     };
 
     runTimeline();
-  }, [currentIndex, slides]);
+  }, [currentIndex]);
 
   // Scroll indicator bounce & float animation (runs once on mount)
   useEffect(() => {
@@ -197,26 +197,6 @@ export default function HeroSlider() {
     initScrollAnim();
   }, []);
 
-  // Parallax mouse effect on hero image
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const { innerWidth, innerHeight } = window;
-      const xRatio = (e.clientX / innerWidth - 0.5) * 2;
-      const yRatio = (e.clientY / innerHeight - 0.5) * 2;
-
-      const img = section.querySelector(".hero-bg-image") as HTMLElement;
-      if (img) {
-        img.style.transform = `scale(1.08) translate(${xRatio * -8}px, ${yRatio * -8}px)`;
-      }
-    };
-
-    section.addEventListener("mousemove", handleMouseMove);
-    return () => section.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
   if (slides.length === 0) return (
     <section className="w-full h-screen bg-[#111111] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -226,24 +206,24 @@ export default function HeroSlider() {
     </section>
   );
 
-  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
-  const activeSlide = slides[currentIndex];
+  const activeSlide = slides[currentIndex] || slides[0];
+  if (!activeSlide) return null;
 
   return (
     <section
       ref={sectionRef}
       className="relative w-full h-screen min-h-[700px] max-h-[1000px] overflow-hidden bg-[#111111]"
     >
-      {/* CANVAS MOUNTAIN FOG */}
-      <MountainFog />
-
-      {/* BACKGROUND IMAGE — KEY: changes on slide switch */}
+      {/* BACKGROUND IMAGE — Natural colors, pristine uncompressed quality, silky smooth hardware-accelerated zoom */}
       <div
         key={activeSlide.id}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full overflow-hidden"
         style={{
-          animation: "kenBurns 8s ease-out forwards",
+          animation: "kenBurns 10s ease-out forwards",
+          willChange: "transform",
+          transform: "translate3d(0, 0, 0)",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }}
       >
         <Image
@@ -251,38 +231,18 @@ export default function HeroSlider() {
           alt={activeSlide.title || "Hero banner"}
           fill
           priority
-          unoptimized={activeSlide.desktopImage?.startsWith("data:") || activeSlide.desktopImage?.startsWith("blob:")}
-          className="hero-bg-image object-cover object-center transition-transform duration-300"
-          style={{ transform: "scale(1.08)" }}
+          quality={100}
+          unoptimized={true}
+          className="hero-bg-image object-cover object-center"
         />
       </div>
 
-      {/* LAYERED OVERLAYS */}
-      {/* 1. Dynamic opacity overlay */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `rgba(0,0,0,${activeSlide.overlayOpacity ?? 0.5})`,
-        }}
-      />
-      {/* 2. Hero gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D] via-[#111111]/30 to-black/50" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-transparent" />
+      {/* ULTRA-MINIMAL SOFT BOTTOM ACCENT — Keeps image 100% natural and bright with no dark veil */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/25 to-transparent pointer-events-none z-10" />
 
-      {/* 3. Animated radial warm light blob (center-left) */}
+      {/* TEXT CONTENT CONTAINER — pointer-events-none so it never intercepts bottom/side controls */}
       <div
-        ref={overlayBlobRef}
-        className="absolute top-1/3 left-1/4 w-[600px] h-[400px] rounded-full pointer-events-none"
-        style={{
-          background: "radial-gradient(ellipse, rgba(198,40,40,0.08) 0%, transparent 70%)",
-          filter: "blur(40px)",
-          animation: "blob-float 16s ease-in-out infinite",
-        }}
-        aria-hidden="true"
-      />
-
-      <div
-        className={`relative z-40 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center pt-20 pb-20 md:pb-28 ${
+        className={`relative z-30 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center pt-28 sm:pt-32 lg:pt-36 pb-20 md:pb-28 pointer-events-none ${
           activeSlide.textAlignment === "center"
             ? "items-center text-center"
             : activeSlide.textAlignment === "right"
@@ -290,35 +250,35 @@ export default function HeroSlider() {
             : "items-start text-left"
         }`}
       >
-        <div className="max-w-3xl space-y-5">
-          {/* BADGE */}
+        <div className="max-w-3xl lg:max-w-4xl space-y-3.5 sm:space-y-4 pointer-events-auto">
+          {/* BADGE (Reduced blur for sharp clarity, comfortably below logo) */}
           <div
             ref={badgeRef}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-[#FBF8F3] text-xs font-accent tracking-widest uppercase"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full border text-[#FBF8F3] text-[11px] sm:text-xs font-accent tracking-widest uppercase shadow-lg"
             style={{
-              background: "rgba(200,157,69,0.15)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              borderColor: "rgba(200,157,69,0.5)",
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+              borderColor: "rgba(200,157,69,0.7)",
             }}
           >
             <MapPin className="w-3.5 h-3.5 text-[#C89D45]" />
             <span>{activeSlide.badge}</span>
           </div>
 
-          {/* MAIN TITLE */}
+          {/* MAIN TITLE (Balanced luxury scale preventing layout collision) */}
           <h1
             ref={headingRef}
-            className="font-serif text-5xl sm:text-7xl lg:text-8xl font-bold text-white leading-[1.0] tracking-tight drop-shadow-2xl"
+            className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.06] tracking-tight"
             style={{ perspective: "800px" }}
           >
             {activeSlide.title}
           </h1>
 
-          {/* SUBTITLE */}
+          {/* SUBTITLE (Readable, elegant proportion) */}
           <p
             ref={subtitleRef}
-            className="font-display text-xl sm:text-2xl text-white italic font-light max-w-2xl"
+            className="font-display text-base sm:text-lg md:text-xl text-white/95 italic font-medium max-w-2xl leading-relaxed"
           >
             {activeSlide.subtitle}
           </p>
@@ -326,7 +286,7 @@ export default function HeroSlider() {
           {/* LOCATION TAG */}
           <p
             ref={locationRef}
-            className="flex items-center gap-2.5 text-xs font-accent text-white/65 tracking-wider uppercase font-medium"
+            className="flex items-center gap-2.5 text-[11px] sm:text-xs font-accent text-white tracking-wider uppercase font-semibold"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C62828] opacity-75" />
@@ -335,14 +295,14 @@ export default function HeroSlider() {
             <span>{activeSlide.location}</span>
           </p>
 
-          {/* BUTTONS */}
+          {/* BUTTONS (Reduced blur for snappy luxury feel) */}
           <div
             ref={buttonsRef}
-            className="pt-4 flex flex-wrap items-center gap-4"
+            className="pt-2 sm:pt-3 flex flex-wrap items-center gap-3 sm:gap-4"
           >
             <Link
               href={activeSlide.buttonLink || "/booking"}
-              className="btn-luxury group relative bg-gradient-luxury-red text-white px-9 py-4 rounded-full font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2.5 border border-[#C89D45]/50 overflow-hidden"
+              className="btn-luxury group relative bg-gradient-luxury-red text-white px-9 py-4 rounded-full font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2.5 border border-[#C89D45]/50 overflow-hidden shadow-xl"
               style={{ background: "linear-gradient(135deg, #C62828, #8B1E1E)" }}
             >
               <Calendar className="w-4 h-4 text-[#C89D45] relative z-10" />
@@ -351,55 +311,64 @@ export default function HeroSlider() {
 
             <Link
               href="/experiences"
-              className="btn-luxury relative text-[#1F1F1F] px-9 py-4 rounded-full font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2.5 border border-[#C89D45]/60 overflow-hidden"
+              className="btn-luxury relative text-[#1F1F1F] px-9 py-4 rounded-full font-accent text-xs font-bold uppercase tracking-widest flex items-center gap-2.5 border border-[#C89D45]/60 overflow-hidden shadow-lg"
               style={{
-                background: "rgba(251,248,243,0.88)",
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
+                background: "rgba(251,248,243,0.96)",
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
               }}
             >
               <Compass className="w-4 h-4 text-[#C62828] relative z-10" />
-              <span className="relative z-10">Explore Experiences</span>
+              <span className="relative z-10 font-bold">Explore Experiences</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* SLIDE CONTROLS */}
-      <div className="absolute bottom-10 right-8 z-30 hidden md:flex items-center gap-3">
-        <button
-          onClick={prevSlide}
-          className="p-3 rounded-full text-white border border-[#C89D45]/40 transition-all hover:bg-[#C62828] hover:border-[#C62828] hover:scale-110"
-          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(12px)" }}
-          aria-label="Previous Slide"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
 
-        <div className="flex items-center gap-2">
-          {slides.map((slide, idx) => (
-            <button
-              key={slide.id}
-              onClick={() => setCurrentIndex(idx)}
-              className={`rounded-full transition-all duration-500 ${
-                idx === currentIndex
-                  ? "w-9 h-2.5 bg-[#C89D45] shadow-golden-glow"
-                  : "w-2.5 h-2.5 bg-white/35 hover:bg-white/70"
-              }`}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
-          ))}
+
+      {/* BOTTOM SLIDE CONTROLS (Back / Dots / Next) — High z-index with pointer-events-auto */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-8 right-5 sm:right-8 z-50 flex items-center gap-2.5 sm:gap-3 pointer-events-auto">
+          <button
+            type="button"
+            onClick={prevSlide}
+            className="p-2.5 sm:p-3 rounded-full text-white border border-[#C89D45]/50 transition-all hover:bg-[#C62828] hover:border-[#C62828] hover:scale-110 shadow-xl cursor-pointer flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+            aria-label="Previous Slide (Back)"
+            title="Back"
+          >
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {slides.map((slide, idx) => (
+              <button
+                type="button"
+                key={slide.id}
+                onClick={() => goToSlide(idx)}
+                className={`rounded-full transition-all duration-500 cursor-pointer ${
+                  idx === currentIndex
+                    ? "w-8 sm:w-9 h-2.5 bg-[#C89D45] shadow-golden-glow"
+                    : "w-2.5 h-2.5 bg-white/50 hover:bg-white/90"
+                }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={nextSlide}
+            className="p-2.5 sm:p-3 rounded-full text-white border border-[#C89D45]/50 transition-all hover:bg-[#C62828] hover:border-[#C62828] hover:scale-110 shadow-xl cursor-pointer flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+            aria-label="Next Slide"
+            title="Next"
+          >
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
         </div>
-
-        <button
-          onClick={nextSlide}
-          className="p-3 rounded-full text-white border border-[#C89D45]/40 transition-all hover:bg-[#C62828] hover:border-[#C62828] hover:scale-110"
-          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(12px)" }}
-          aria-label="Next Slide"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
+      )}
 
       {/* SCROLL INDICATOR */}
       <div
@@ -418,11 +387,11 @@ export default function HeroSlider() {
         <ChevronDown className="w-4 h-4 text-white/40" />
       </div>
 
-      {/* KEN BURNS CSS */}
+      {/* KEN BURNS CSS — Silky smooth hardware-accelerated subtle zoom */}
       <style jsx>{`
         @keyframes kenBurns {
-          0% { transform: scale(1.12); opacity: 0.7; }
-          100% { transform: scale(1.04); opacity: 1; }
+          0% { transform: scale(1.04) translate3d(0, 0, 0); }
+          100% { transform: scale(1.0) translate3d(0, 0, 0); }
         }
       `}</style>
     </section>

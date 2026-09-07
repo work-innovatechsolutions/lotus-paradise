@@ -43,7 +43,7 @@ export default function Navbar() {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 print:hidden ${
         isScrolled
           ? "py-3 shadow-cinematic"
-          : "bg-gradient-to-b from-black/65 via-black/25 to-transparent py-5"
+          : "bg-gradient-to-b from-black/15 via-transparent to-transparent py-5"
       }`}
       style={
         isScrolled
@@ -64,7 +64,7 @@ export default function Navbar() {
             className={`relative transition-all duration-300 flex items-center justify-center ${
               isScrolled
                 ? "w-[125px] h-[52px]"
-                : "w-[145px] h-[60px] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-[#C89D45]/35 shadow-md group-hover:bg-white/95"
+                : "w-[145px] h-[60px] bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-2xl border border-[#C89D45]/35 shadow-md group-hover:bg-white"
             }`}
           >
             <Image

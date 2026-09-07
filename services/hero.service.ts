@@ -24,7 +24,7 @@ const DEFAULT_SLIDES: HeroSlide[] = [
     desktopImage: "/images/hero/himalayan-horizon-view.jpeg",
     mobileImage: "/images/hero/himalayan-horizon-view.jpeg",
     video: "",
-    overlayOpacity: 0.5,
+    overlayOpacity: 0,
     textAlignment: "left",
     buttonText: "Book Your Stay",
     buttonLink: "/booking",

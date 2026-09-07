@@ -276,14 +276,16 @@ export default function AdminHeroSlidesPage() {
                   Desktop Background Image *
                 </label>
 
-                {/* Drag and Drop Image Box */}
+                {/* Drag and Drop Image Box (Full Resolution, No Compression) */}
                 <ImageDropbox
                   images={editingSlide.desktopImage ? [editingSlide.desktopImage] : []}
                   onChange={(imgs) =>
                     setEditingSlide({ ...editingSlide, desktopImage: imgs[0] || "" })
                   }
                   multiple={false}
-                  label="Drop hero slide image here or click to browse"
+                  noCompress={true}
+                  folder="hero"
+                  label="Drop high-res hero image here (zero compression, 100% full quality)"
                 />
 
                 {/* Direct Image URL fallback/manual input */}

@@ -13,6 +13,10 @@ interface ImageDropboxProps {
   /** Allow uploading multiple images (default false = single) */
   multiple?: boolean;
   label?: string;
+  /** If true, skips all compression and uploads the pristine full-resolution file */
+  noCompress?: boolean;
+  /** Upload target subfolder in public/uploads (e.g. "hero", "rooms", "blogs") */
+  folder?: string;
 }
 
 export default function ImageDropbox({
@@ -20,46 +24,83 @@ export default function ImageDropbox({
   onChange,
   multiple = false,
   label = "Drop image here or click to browse",
+  noCompress = false,
+  folder = "uploads",
 }: ImageDropboxProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [loading,  setLoading]  = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // ── Process accepted files & compress to WebP ────────────────────────────────
+  // ── Process accepted files (Raw Original or Compressed) ──────────────────────
   const processFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
       setLoading(true);
+      setErrorMessage(null);
 
       const accepted = Array.from(files).filter((f) =>
         f.type.startsWith("image/")
       );
 
+      if (accepted.length === 0) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const dataUrls = (
-          await Promise.all(
-            accepted.map((file) =>
-              compressImageToWebP(file, {
-                maxDimension: multiple ? 800 : 1100,
-                quality: multiple ? 0.65 : 0.70,
-                maxSizeBytes: multiple ? 65 * 1024 : 120 * 1024,
-              })
+        let urls: string[] = [];
+
+        if (noCompress) {
+          // DIRECT RAW UPLOAD: 0% compression, 100% original quality & dimensions
+          urls = await Promise.all(
+            accepted.map(async (file) => {
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("folder", folder);
+
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Upload failed with status ${res.status}`);
+              }
+
+              const data = await res.json();
+              return data.url as string;
+            })
+          );
+        } else {
+          // Fallback WebP compressor with high quality ceiling
+          urls = (
+            await Promise.all(
+              accepted.map((file) =>
+                compressImageToWebP(file, {
+                  maxDimension: multiple ? 1200 : 2560,
+                  quality: multiple ? 0.75 : 0.85,
+                  maxSizeBytes: multiple ? 150 * 1024 : 350 * 1024,
+                })
+              )
             )
-          )
-        ).filter(Boolean);
+          ).filter(Boolean);
+        }
 
         if (multiple) {
-          onChange([...images, ...dataUrls]);
+          onChange([...images, ...urls]);
         } else {
-          onChange(dataUrls.slice(0, 1)); // single mode — replace
+          onChange(urls.slice(0, 1)); // single mode — replace
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Image processing error:", err);
+        setErrorMessage(err.message || "Failed to process image");
       } finally {
         setLoading(false);
       }
     },
-    [images, multiple, onChange]
+    [images, multiple, noCompress, folder, onChange]
   );
 
   // ── Drag events ──────────────────────────────────────────────────────────────
@@ -125,6 +166,16 @@ export default function ImageDropbox({
         />
       </div>
 
+      {/* ── Error Message ── */}
+      {errorMessage && (
+        <div className="p-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-accent flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => setErrorMessage(null)} className="text-red-300 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* ── Image Previews ── */}
       {images.length > 0 && (
         <div className={`grid gap-2 ${multiple ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-1"}`}>
@@ -140,7 +191,7 @@ export default function ImageDropbox({
                 alt={`Upload ${idx + 1}`}
                 fill
                 className="object-cover"
-                unoptimized={src.startsWith("data:")}
+                unoptimized={true}
               />
               {/* Overlay on hover */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200 flex items-center justify-center">

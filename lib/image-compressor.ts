@@ -15,9 +15,9 @@ export async function compressImageToWebP(
   options: CompressionOptions = {}
 ): Promise<string> {
   const {
-    maxDimension = 1200,
-    quality = 0.75,
-    maxSizeBytes = 200 * 1024, // 200 KB target
+    maxDimension = 2560,
+    quality = 0.90,
+    maxSizeBytes = 500 * 1024, // 500 KB target
   } = options;
 
   return new Promise((resolve, reject) => {
@@ -32,7 +32,7 @@ export async function compressImageToWebP(
           let currentQuality = quality;
           let outputDataUrl = "";
           let attempts = 0;
-          const maxAttempts = 4;
+          const maxAttempts = 3;
 
           while (attempts < maxAttempts) {
             // 1. Calculate scaled dimensions
@@ -58,7 +58,7 @@ export async function compressImageToWebP(
               return;
             }
 
-            // Smooth image downscaling
+            // High quality downscaling
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.fillStyle = "#FFFFFF";
@@ -80,9 +80,8 @@ export async function compressImageToWebP(
               break;
             }
 
-            // Step down quality and dimensions for next attempt
-            currentQuality = Math.max(0.45, currentQuality - 0.15);
-            currentMaxDim = Math.round(currentMaxDim * 0.8);
+            // Step down quality gently without ruining resolution
+            currentQuality = Math.max(0.75, currentQuality - 0.08);
             attempts++;
           }
 
